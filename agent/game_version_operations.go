@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"dont/internal/installationlock"
+	"dont/internal/steamlogin"
 	"errors"
 	"fmt"
 	"io"
@@ -118,7 +119,7 @@ func (a *Agent) updateGameVersion(ctx context.Context, installation RuntimeInsta
 	}
 	output := &limitedGameVersionBuffer{limit: maxGameUpdateLogBytes}
 	arguments := []string{"+force_install_dir", root, "+login", "anonymous", "+app_update", dstDedicatedServerAppID, "validate", "+quit"}
-	runErr := a.gameVersionRunner.Run(ctx, steamcmd, arguments, output)
+	runErr := steamlogin.Wrap(a.Config.SteamLogin, a.gameVersionRunner).Run(ctx, steamcmd, arguments, output)
 	current, installed := readInstalledGameVersion(installation)
 	value := gameVersionResult(a.now, installation, steamcmd, output.String())
 	value.CurrentVersion, value.SteamBuild, value.Installed = current, current, installed
@@ -233,27 +234,7 @@ func gameManifestCandidates(root, appID string) []string {
 }
 
 func findAgentSteamCMD(configured string) string {
-	configured = strings.TrimSpace(configured)
-	if configured != "" {
-		configured = filepath.Clean(configured)
-		if executableGameFile(configured) {
-			return configured
-		}
-		for _, name := range []string{"steamcmd", "steamcmd.sh", "steamcmd.exe"} {
-			candidate := filepath.Join(configured, name)
-			if executableGameFile(candidate) {
-				return candidate
-			}
-		}
-	}
-	for _, name := range []string{"steamcmd", "steamcmd.sh", "steamcmd.exe"} {
-		if value, err := exec.LookPath(name); err == nil {
-			if absolute, absErr := filepath.Abs(value); absErr == nil && executableGameFile(absolute) {
-				return absolute
-			}
-		}
-	}
-	return ""
+	return steamlogin.ResolveExecutable(configured)
 }
 
 func executableGameFile(path string) bool {

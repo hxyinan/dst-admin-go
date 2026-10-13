@@ -94,3 +94,17 @@ func TestRuntimeOperationTimeoutAllowsBoundedMigrationPeerFetch(t *testing.T) {
 		t.Fatal("unexpected Runtime operation timeout limits")
 	}
 }
+
+func TestSteamLoginAuditNeverRetainsCredentials(t *testing.T) {
+	request := shared.RuntimeOperationRequest{Action: shared.RuntimeActionSteamLoginManage, GameInstallation: &shared.GameInstallationRequest{SteamLogin: &shared.SteamLoginRequest{Action: "configure", Mode: "account", Username: "steam_user", Password: "private-password", Code: "ABCDE"}}}
+	content, err := runtimeOperationAuditContent(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(content, "private-password") || strings.Contains(content, "ABCDE") {
+		t.Fatal("credentials leaked into command history", content)
+	}
+	if request.GameInstallation.SteamLogin.Password != "private-password" || request.GameInstallation.SteamLogin.Code != "ABCDE" {
+		t.Fatal("redaction changed transport payload")
+	}
+}

@@ -951,6 +951,13 @@ func (s *Server) SendRuntimeOperation(agentID string, request shared.RuntimeOper
 
 func runtimeOperationAuditContent(request shared.RuntimeOperationRequest) (string, error) {
 	audit := request
+	if request.GameInstallation != nil && request.GameInstallation.SteamLogin != nil {
+		value := *request.GameInstallation
+		login := *value.SteamLogin
+		login.Password, login.Code = "", ""
+		value.SteamLogin = &login
+		audit.GameInstallation = &value
+	}
 	if request.Console != nil {
 		value := *request.Console
 		if request.Console.CommandDocument != nil {

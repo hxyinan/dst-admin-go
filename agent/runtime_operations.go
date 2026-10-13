@@ -1211,6 +1211,9 @@ func (state *shardOperationState) finishRuntime(request shared.RuntimeOperationR
 }
 
 func runtimeOperationRoomKey(request shared.RuntimeOperationRequest) string {
+	if shared.IsSteamLoginAction(request.Action) {
+		return request.InstallationID + "\x00steam-login"
+	}
 	if isModAction(request.Action) {
 		return request.InstallationID + "\x00mods"
 	}

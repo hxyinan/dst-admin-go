@@ -21,6 +21,7 @@ import (
 	"time"
 
 	dstinstall "dont/internal/dstserver"
+	"dont/internal/steamlogin"
 	"dont/internal/steamvdf"
 )
 
@@ -52,6 +53,7 @@ type steamBuildLookup struct {
 }
 
 type SteamVersionChecker struct {
+	steamLogin     *steamlogin.Manager
 	client         *http.Client
 	resolveAppInfo func(context.Context, string) (string, error)
 	now            func() time.Time
@@ -74,9 +76,12 @@ func NewSteamVersionChecker(steamCMDPaths ...string) *SteamVersionChecker {
 		cache: make(map[string]steamBuildCacheEntry), inflight: make(map[string]*steamBuildLookup),
 	}
 	checker.resolveAppInfo = func(ctx context.Context, appID string) (string, error) {
-		return resolveSteamCMDPublicBuild(ctx, configuredPath, appID)
+		return resolveSteamCMDPublicBuildWithLogin(ctx, configuredPath, appID, checker.steamLogin)
 	}
 	return checker
+}
+func (c *SteamVersionChecker) ConfigureSteamLogin(manager *steamlogin.Manager) {
+	c.steamLogin = manager
 }
 
 func (c *SteamVersionChecker) Check(ctx context.Context, appID, localVersion string) (string, bool, error) {
@@ -245,6 +250,9 @@ func (c *SteamVersionChecker) cacheNow() time.Time {
 }
 
 func resolveSteamCMDPublicBuild(ctx context.Context, configuredPath, appID string) (string, error) {
+	return resolveSteamCMDPublicBuildWithLogin(ctx, configuredPath, appID, nil)
+}
+func resolveSteamCMDPublicBuildWithLogin(ctx context.Context, configuredPath, appID string, manager *steamlogin.Manager) (string, error) {
 	executable := findSteamCMD(configuredPath)
 	if executable == "" {
 		return "", errors.New("SteamCMD is unavailable for the latest build lookup")
@@ -255,6 +263,19 @@ func resolveSteamCMDPublicBuild(ctx context.Context, configuredPath, appID strin
 	}()
 	commandContext, cancel := context.WithTimeout(ctx, steamOnlineAppInfoTimeout)
 	defer cancel()
+	if manager != nil {
+		account, err := manager.Account(executable)
+		if err != nil {
+			return "", err
+		}
+		if account {
+			output := &boundedBuffer{limit: 4 * 1024 * 1024}
+			if err = manager.Run(commandContext, executable, []string{"+login", "anonymous", "+app_info_update", "1", "+app_info_print", appID, "+quit"}, output); err != nil {
+				return "", err
+			}
+			return parseSteamCMDPublicBuild([]byte(output.String()), appID)
+		}
+	}
 	command := exec.CommandContext(
 		commandContext, executable,
 		"+login", "anonymous", "+app_info_update", "1", "+app_info_print", appID, "+quit",
@@ -466,33 +487,5 @@ func installRoot(serverPath string) string {
 }
 
 func findSteamCMD(configuredPath string) string {
-	configuredPath = filepath.Clean(strings.TrimSpace(configuredPath))
-	if configuredPath != "" && configuredPath != "." {
-		if executableFile(configuredPath) {
-			return configuredPath
-		}
-		for _, name := range []string{"steamcmd.sh", "steamcmd", "steamcmd.exe"} {
-			candidate := filepath.Join(configuredPath, name)
-			if executableFile(candidate) {
-				return candidate
-			}
-		}
-	}
-	for _, name := range []string{"steamcmd", "steamcmd.sh", "steamcmd.exe"} {
-		if value, err := exec.LookPath(name); err == nil {
-			return value
-		}
-	}
-	return ""
-}
-
-func executableFile(value string) bool {
-	info, err := os.Stat(value)
-	if err != nil || info.IsDir() {
-		return false
-	}
-	if runtime.GOOS == "windows" {
-		return true
-	}
-	return info.Mode().Perm()&0111 != 0
+	return steamlogin.ResolveExecutable(configuredPath)
 }

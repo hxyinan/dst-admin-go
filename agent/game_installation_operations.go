@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"dont/internal/gameinstall"
+	"dont/internal/steamlogin"
 	"dont/shared"
 )
 
@@ -14,6 +15,18 @@ func validateGameInstallationPayload(r shared.RuntimeOperationRequest) error {
 		return errors.New("游戏安装请求负载无效")
 	}
 	p := r.GameInstallation
+	if shared.IsSteamLoginAction(r.Action) {
+		if p.Path != "" || p.Fingerprint != "" || p.SteamLogin == nil {
+			return steamlogin.ErrInvalid
+		}
+		if (r.Action == shared.RuntimeActionSteamLoginObserve) != (p.SteamLogin.Action == "status") {
+			return steamlogin.ErrInvalid
+		}
+		return steamlogin.Validate(*p.SteamLogin)
+	}
+	if p.SteamLogin != nil {
+		return steamlogin.ErrInvalid
+	}
 	if len(p.Path) > 4096 || strings.ContainsAny(p.Path, "\x00\r\n") {
 		return errors.New("游戏目录无效")
 	}
@@ -36,8 +49,23 @@ func validateGameInstallationPayload(r shared.RuntimeOperationRequest) error {
 	return nil
 }
 func (a *Agent) executeGameInstallation(ctx context.Context, i RuntimeInstallation, r shared.RuntimeOperationRequest) (shared.RuntimeOperationResult, error) {
-	o := gameinstall.Options{ServerPath: i.ServerPath, SavePath: i.SavePath, SteamCMDPath: i.SteamCMDPath, ServerMode: i.ServerMode, Driver: i.Driver, Runner: a.gameVersionRunner}
+	o := gameinstall.Options{ServerPath: i.ServerPath, SavePath: i.SavePath, SteamCMDPath: i.SteamCMDPath, ServerMode: i.ServerMode, Driver: i.Driver, Runner: a.gameVersionRunner, SteamLogin: a.Config.SteamLogin}
 	result := runtimeResult(r, shared.RuntimeOutcomeObserved, "游戏安装状态已读取")
+	if shared.IsSteamLoginAction(r.Action) {
+		if a.Config.SteamLogin == nil {
+			return result, errors.New("该节点未启用 Steam 登录管理")
+		}
+		status, err := a.Config.SteamLogin.Manage(findAgentSteamCMD(i.SteamCMDPath), *r.GameInstallation.SteamLogin)
+		result.GameInstallation = &shared.GameInstallationReport{SteamLogin: &status}
+		if err != nil {
+			result.Outcome = shared.RuntimeOutcomeFailed
+			result.Message = err.Error()
+		} else if r.Action == shared.RuntimeActionSteamLoginManage {
+			result.Outcome = shared.RuntimeOutcomeConfirmed
+			result.Message = "Steam 登录设置已处理"
+		}
+		return result, err
+	}
 	var report shared.GameInstallationReport
 	var err error
 	switch r.Action {

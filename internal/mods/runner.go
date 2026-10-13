@@ -8,14 +8,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"dont/internal/operationprogress"
+	"dont/internal/steamlogin"
 	"dont/shared"
 )
 
@@ -36,6 +35,7 @@ type steamCMDSession struct {
 }
 
 type SteamCMDRunner struct {
+	SteamLogin     *steamlogin.Manager
 	Executable     string
 	DownloadRoot   string
 	AppID          string
@@ -79,6 +79,16 @@ func (r *SteamCMDRunner) Download(ctx context.Context, ids []string, validate bo
 		}
 	}
 	arguments = append(arguments, "+quit")
+	if r.SteamLogin != nil {
+		account, release, err := r.SteamLogin.AnonymousUsage(r.Executable)
+		if err != nil {
+			return err
+		}
+		if account {
+			return r.SteamLogin.RunObserved(ctx, r.Executable, arguments, output, func(pid int) func() { return r.followDownloadProgress(ctx, pid, ids) })
+		}
+		defer release()
+	}
 	command := exec.CommandContext(ctx, r.Executable, arguments...)
 	if output == nil {
 		output = io.Discard
@@ -108,6 +118,21 @@ func (r *SteamCMDRunner) Download(ctx context.Context, ids []string, validate bo
 func (r *SteamCMDRunner) DownloadSession(ctx context.Context, ids []string, validate bool, output io.Writer) error {
 	if r.Executable == "" {
 		return ErrSteamCMDUnavailable
+	}
+	if r.SteamLogin != nil {
+		account, release, err := r.SteamLogin.AnonymousUsage(r.Executable)
+		if err != nil {
+			return err
+		}
+		if account {
+			r.callMu.Lock()
+			defer r.callMu.Unlock()
+			r.sessionMu.Lock()
+			r.closeSessionLocked(false)
+			r.sessionMu.Unlock()
+			return r.Download(ctx, ids, validate, output)
+		}
+		defer release()
 	}
 	ids = uniqueModIDs(ids)
 	if len(ids) == 0 {
@@ -392,32 +417,7 @@ func steamCMDOutputFailure(output string) string {
 }
 
 func findSteamCMD(configured string) string {
-	configured = filepath.Clean(strings.TrimSpace(configured))
-	if configured != "" && configured != "." {
-		if executableFile(configured) {
-			return configured
-		}
-		for _, name := range []string{"steamcmd.sh", "steamcmd", "steamcmd.exe"} {
-			candidate := filepath.Join(configured, name)
-			if executableFile(candidate) {
-				return candidate
-			}
-		}
-	}
-	for _, name := range []string{"steamcmd", "steamcmd.sh", "steamcmd.exe"} {
-		if value, err := exec.LookPath(name); err == nil {
-			return value
-		}
-	}
-	return ""
-}
-
-func executableFile(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return false
-	}
-	return runtime.GOOS == "windows" || info.Mode().Perm()&0111 != 0
+	return steamlogin.ResolveExecutable(configured)
 }
 
 var _ DownloadRunner = (*SteamCMDRunner)(nil)

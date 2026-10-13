@@ -66,6 +66,9 @@ func (s *Service) ExecuteRuntime(ctx context.Context, targetID string, request s
 }
 
 func runtimeCapability(action shared.RuntimeAction) string {
+	if shared.IsSteamLoginAction(action) {
+		return shared.SteamLoginCapability
+	}
 	if shared.IsGameInstallationAction(action) {
 		return "runtime.game-install.v1"
 	}

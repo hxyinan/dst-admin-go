@@ -11,6 +11,7 @@ import (
 	"dont/internal/jobs"
 	"dont/internal/operationlease"
 	"dont/internal/operationprogress"
+	"dont/internal/steamlogin"
 	"dont/shared"
 	"github.com/google/uuid"
 )
@@ -30,16 +31,18 @@ type Installation struct {
 	shared.GameInstallationReport
 }
 type Service struct {
-	targets Targets
-	jobs    *jobs.Service
-	leases  *operationlease.Service
-	mu      sync.Mutex
-	busy    map[string]bool
+	steamLogin *steamlogin.Manager
+	targets    Targets
+	jobs       *jobs.Service
+	leases     *operationlease.Service
+	mu         sync.Mutex
+	busy       map[string]bool
 }
 
 func NewService(t Targets, j *jobs.Service, l *operationlease.Service) *Service {
 	return &Service{targets: t, jobs: j, leases: l, busy: map[string]bool{}}
 }
+func (s *Service) ConfigureSteamLogin(manager *steamlogin.Manager) { s.steamLogin = manager }
 func supported(t agents.RuntimeTarget) bool {
 	if t.ID == "local" {
 		return true
@@ -273,6 +276,7 @@ func (s *Service) execute(ctx context.Context, targetID, installationID string, 
 	defer func() { close(done); <-renewed; _ = s.leases.Release(lease) }()
 	if t.ID == "local" {
 		o := options(t, i)
+		o.SteamLogin = s.steamLogin
 		if action == shared.RuntimeActionGameInstallationAdopt {
 			_, err = o.Adopt(ctx, p.Path, p.Fingerprint)
 		} else {

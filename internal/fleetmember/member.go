@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"dont/agent"
+	"dont/internal/steamlogin"
 	"dont/shared"
 
 	"github.com/go-ini/ini"
 )
 
 type Config struct {
+	SteamLogin     *steamlogin.Manager
 	ControllerURL  string
 	SecurityKey    string
 	NodeID         string
@@ -50,7 +52,8 @@ func New(config Config) (*Member, error) {
 		config.ReportInterval = 5 * time.Minute
 	}
 	client, err := agent.NewAgent(&agent.Config{
-		ServerURL: config.ControllerURL, AgentID: config.NodeID, SecurityKey: config.SecurityKey,
+		SteamLogin: config.SteamLogin,
+		ServerURL:  config.ControllerURL, AgentID: config.NodeID, SecurityKey: config.SecurityKey,
 		KeyFile: identityPath, OperationStateFile: filepath.Join(statePath, "runtime-state.json"),
 		RuntimeInstallations: []agent.RuntimeInstallation{config.Runtime}, ReportInterval: config.ReportInterval,
 	})

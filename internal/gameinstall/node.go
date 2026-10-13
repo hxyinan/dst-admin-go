@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -19,6 +18,7 @@ import (
 	"dont/internal/dstserver"
 	"dont/internal/installationlock"
 	"dont/internal/operationprogress"
+	"dont/internal/steamlogin"
 	"dont/shared"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/process"
@@ -32,6 +32,7 @@ type Runner interface {
 	Run(context.Context, string, []string, io.Writer) error
 }
 type Options struct {
+	SteamLogin                                                                     *steamlogin.Manager
 	ServerPath, SavePath, SteamCMDPath, ServerMode, Driver, Platform, Architecture string
 	Runner                                                                         Runner
 }
@@ -86,11 +87,7 @@ func (o Options) steamCMD() string {
 	if o.SteamCMDPath == "" {
 		return ""
 	}
-	p, err := exec.LookPath(o.SteamCMDPath)
-	if err != nil {
-		return ""
-	}
-	return p
+	return steamlogin.ResolveExecutable(o.SteamCMDPath)
 }
 func readVersion(root string) string {
 	f, err := os.Open(filepath.Join(root, "version.txt"))
@@ -357,14 +354,11 @@ func (o Options) Install(ctx context.Context) (shared.GameInstallationReport, er
 	operationprogress.Report(ctx, operationprogress.Update{Stage: "game.install", Percent: 0, Message: "正在连接 Steam 并准备安装"})
 	args := []string{"+force_install_dir", root, "+login", "anonymous", "+app_update", dstserver.AppIDDedicatedServer, "validate", "+quit"}
 	out := &installOutput{ctx: ctx, now: time.Now}
-	if o.Runner != nil {
-		err = o.Runner.Run(ctx, o.steamCMD(), args, out)
-	} else {
-		command := exec.CommandContext(ctx, o.steamCMD(), args...)
-		command.Stdout = out
-		command.Stderr = out
-		err = command.Run()
+	var runner Runner = o.Runner
+	if runner == nil {
+		runner = steamlogin.ExecRunner{}
 	}
+	err = steamlogin.Wrap(o.SteamLogin, runner).Run(ctx, o.steamCMD(), args, out)
 	logText := out.finish()
 	if err != nil {
 		return o.Inspect(), fmt.Errorf("SteamCMD 安装失败: %w\n%s", err, logText)

@@ -79,6 +79,7 @@ type steamModFetchCommandRunner struct{}
 
 func (steamModFetchCommandRunner) Download(ctx context.Context, installation RuntimeInstallation, downloadRoot, workshopID string, validate bool) error {
 	runner := mods.NewSteamCMDRunner(installation.SteamCMDPath, downloadRoot, "322330")
+	runner.SteamLogin = installation.SteamLogin
 	return runner.Download(ctx, []string{workshopID}, validate, io.Discard)
 }
 
@@ -106,6 +107,7 @@ func (r *steamInstallationModDownloadRunner) Download(ctx context.Context, insta
 	runner := r.runners[key]
 	if runner == nil {
 		runner = mods.NewSteamCMDRunner(installation.SteamCMDPath, downloadRoot, "322330")
+		runner.SteamLogin = installation.SteamLogin
 		r.runners[key] = runner
 	}
 	r.mu.Unlock()

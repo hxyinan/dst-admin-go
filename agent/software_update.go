@@ -20,7 +20,7 @@ func (a *Agent) ConfigureSoftwareUpdate(service *softwareupdate.Service) {
 		defer a.commandAdmissionMu.Unlock()
 		// This command is included in commandsPending. No other command may be
 		// queued or running when the software switches; DST processes may run.
-		if a.commandsPaused || a.commandsPending != 1 {
+		if a.commandsPaused || a.commandsPending != 1 || (a.Config.SteamLogin != nil && a.Config.SteamLogin.Busy()) {
 			return nil, softwareupdate.ErrBusy
 		}
 		a.commandsPaused = true

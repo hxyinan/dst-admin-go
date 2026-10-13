@@ -58,6 +58,7 @@ import (
 	"dont/internal/saveimport"
 	"dont/internal/shards"
 	"dont/internal/softwareupdate"
+	"dont/internal/steamlogin"
 	"dont/internal/structuredlogs"
 	"dont/internal/systemsettings"
 	"dont/internal/systemstatus"
@@ -295,12 +296,15 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 		})
 	}
 	var embeddedFleetMember *fleetmember.Member
+	steamLoginManager := steamlogin.New(filepath.Join(filepath.Dir(config.ConfigPath), "steam-auth"))
+	hooks.stop = append(hooks.stop, func(context.Context) error { steamLoginManager.Close(); return nil })
 	if backgroundEnabled && deploymentProfile.MemberEnabled {
 		memberWorkshopContentPath := runtimeWorkshopContentPath
 		if memberWorkshopContentPath == "" {
 			memberWorkshopContentPath = workshopContentPath
 		}
 		embeddedFleetMember, err = fleetmember.New(fleetmember.Config{
+			SteamLogin:    steamLoginManager,
 			ControllerURL: deploymentProfile.ControllerURL, SecurityKey: deploymentProfile.MemberKey,
 			NodeID: deploymentProfile.NodeID, StatePath: deploymentProfile.StatePath,
 			Runtime: runtimeagent.RuntimeInstallation{
@@ -794,7 +798,9 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	steamMetadata := modservice.NewSteamProvider(steamAPIKey, steamAppID)
 	steamMetadata.ConfigureMetadataStore(metadataStore)
 	var modMetadata modservice.MetadataProvider = steamMetadata
-	var modRunner modservice.DownloadRunner = modservice.NewSteamCMDRunner(steamCMDPath, workshopDownloadPath, steamAppID)
+	steamModRunner := modservice.NewSteamCMDRunner(steamCMDPath, workshopDownloadPath, steamAppID)
+	steamModRunner.SteamLogin = steamLoginManager
+	var modRunner modservice.DownloadRunner = steamModRunner
 	var modParser modservice.ModInfoParser = modservice.NewDualParserWithPython(luaBinary, pythonBinary, luaFallbackPath)
 	if driver := os.Getenv("DST_ADMIN_TEST_MODS"); driver != "" {
 		if os.Getenv("DST_ADMIN_ENV") != "test" || driver != "memory" {
@@ -1118,8 +1124,10 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	if err := gameUpdateStore.Migrate(); err != nil {
 		return nil, err
 	}
-	var updateRunner gameupdate.CommandRunner = gameupdate.ExecRunner{}
-	var latestChecker gameupdate.LatestChecker = gameupdate.NewSteamVersionChecker(steamCMDPath)
+	var updateRunner gameupdate.CommandRunner = steamlogin.Wrap(steamLoginManager, gameupdate.ExecRunner{})
+	steamVersionChecker := gameupdate.NewSteamVersionChecker(steamCMDPath)
+	steamVersionChecker.ConfigureSteamLogin(steamLoginManager)
+	var latestChecker gameupdate.LatestChecker = steamVersionChecker
 	var officialReleaseChecker gameupdate.OfficialReleaseChecker = gameupdate.NewKleiReleaseChecker(gameUpdateStore)
 	if driver := os.Getenv("DST_ADMIN_TEST_UPDATE"); driver != "" {
 		if os.Getenv("DST_ADMIN_ENV") != "test" || driver != "memory" {
@@ -1160,7 +1168,9 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	}
 	luajitService := luajit.NewService(luajitStore, luajitTransfers, agentService, jobService, operationLeaseService)
 	luajitHandler := httpapi.NewLuaJITHandler(luajitService, luajitTransfers)
-	gameInstallationHandler := httpapi.NewGameInstallationHandler(gameinstall.NewService(agentService, jobService, operationLeaseService))
+	gameInstallationService := gameinstall.NewService(agentService, jobService, operationLeaseService)
+	gameInstallationService.ConfigureSteamLogin(steamLoginManager)
+	gameInstallationHandler := httpapi.NewGameInstallationHandler(gameInstallationService)
 	gameReleaseStore := gameupdate.NewReleaseStore(models.DB(), tablePrefix)
 	if err := gameReleaseStore.Migrate(); err != nil {
 		return nil, err
@@ -1360,7 +1370,7 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	application.settings, application.config = systemSettingsService, config
 	application.software = softwareService
 	application.prepareSoftwareRestart = func(context.Context) (func(), error) {
-		if artworkPackService.Status().Busy {
+		if artworkPackService.Status().Busy || steamLoginManager.Busy() {
 			return nil, systemsettings.ErrRuntimeBusy
 		}
 		resume, err := jobService.PauseIfIdle()
@@ -1379,6 +1389,9 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 		return resume, nil
 	}
 	application.prepareReload = func(ctx context.Context) (func(), error) {
+		if steamLoginManager.Busy() {
+			return nil, systemsettings.ErrRuntimeBusy
+		}
 		resume, err := jobService.PauseIfIdle()
 		if err != nil {
 			return nil, systemsettings.ErrRuntimeBusy

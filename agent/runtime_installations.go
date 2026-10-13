@@ -13,6 +13,7 @@ import (
 
 	"dont/internal/runtimeperformance"
 	"dont/internal/shards"
+	"dont/internal/steamlogin"
 
 	"github.com/go-ini/ini"
 )
@@ -25,6 +26,7 @@ var (
 // RuntimeInstallation is configured on the Agent host. Controllers refer to
 // it by ID and cannot override these trusted paths in an operation request.
 type RuntimeInstallation struct {
+	SteamLogin           *steamlogin.Manager `json:"-"`
 	ID                   string
 	Driver               string
 	SavePath             string
@@ -294,6 +296,7 @@ func (a *Agent) runtimeInstallation(id string) (RuntimeInstallation, bool) {
 	}
 	for _, installation := range a.Config.RuntimeInstallations {
 		if installation.ID == id {
+			installation.SteamLogin = a.Config.SteamLogin
 			return installation, true
 		}
 	}

@@ -854,7 +854,7 @@ func IsRuntimeAction(value RuntimeAction) bool {
 
 func RuntimeActionMutates(value RuntimeAction) bool {
 	if IsGameInstallationAction(value) {
-		return value != RuntimeActionGameInstallationObserve
+		return value != RuntimeActionGameInstallationObserve && value != RuntimeActionSteamLoginObserve
 	}
 	switch value {
 	case RuntimeActionConsoleSend, RuntimeActionMigrationExportPrepare, RuntimeActionMigrationExportRelease,

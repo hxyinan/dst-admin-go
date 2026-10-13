@@ -28,6 +28,7 @@ import (
 	"dont/internal/operationprogress"
 	"dont/internal/shardtransfer"
 	"dont/internal/softwareupdate"
+	"dont/internal/steamlogin"
 	"dont/shared"
 	"github.com/go-ini/ini"
 	"github.com/gorilla/websocket"
@@ -128,6 +129,7 @@ type Agent struct {
 
 // Config 代理配置
 type Config struct {
+	SteamLogin           *steamlogin.Manager
 	ServerURL            string        // 服务器WebSocket URL
 	AgentID              string        // 代理唯一标识
 	ReportInterval       time.Duration // 主动上报间隔
@@ -275,6 +277,9 @@ func NewAgent(config *Config) (*Agent, error) {
 	agent.modFetchRunner = steamModFetchCommandRunner{}
 	agent.modDownloadRunner = newSteamInstallationModDownloadRunner()
 	agent.gameVersionRunner = execGameVersionCommand{}
+	if config.SteamLogin == nil {
+		config.SteamLogin = steamlogin.New(filepath.Join(filepath.Dir(config.KeyFile), "steam-auth"))
+	}
 	agent.reconnectInterval = ReconnectInterval
 	agent.reconnectMaxInterval = ReconnectMaxInterval
 	agent.initializeFreshRuntimeOwnership()
@@ -320,6 +325,9 @@ func (a *Agent) Start() error {
 // Stop 停止代理
 func (a *Agent) Stop() {
 	log.Println("Agent正在停止...")
+	if a.Config.SteamLogin != nil {
+		a.Config.SteamLogin.Close()
+	}
 	if a.software != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		_ = a.software.Close(ctx)
@@ -1228,6 +1236,7 @@ func (a *Agent) collectSystemInfo() map[string]interface{} {
 	capabilities = append(capabilities, deploymentCapabilities...)
 	if len(runtimeProfiles) > 0 && runtime.GOOS != "windows" {
 		capabilities = append(capabilities,
+			shared.SteamLoginCapability,
 			"runtime.mods.local-link.v1",
 			"shard.control.v1", "shard.control.v2", "shard.runtime-mode.v1", "shard.skip-mod-update.v1", "runtime.driver.v2", "runtime.console.v2", "runtime.logs.v1", "runtime.chat-history.v1", "runtime.artifacts.v1", "runtime.worldstate.read.v1", "runtime.entity-artwork.v1", "runtime.migration.v1",
 			"runtime.backup.v1", "runtime.mods.v1", "runtime.mods.state.v1", "runtime.mods.files.v1", "runtime.mods.inventory.v1", "runtime.mods.schema.v1", "runtime.mods.fetch.v2", "runtime.mods.download.v1", "runtime.mods.content-publish.v1", "runtime.progress.v1", "runtime.game-update.v1", "runtime.game-install.v1", "runtime.luajit.v2", "runtime.cpu.v1", "runtime.configuration.v1", "runtime.configuration.read.v1", "runtime.configuration.mod-write.v1", "runtime.configuration.secrets.v1", "runtime.configuration.apply.v1", "runtime.maps.v1",

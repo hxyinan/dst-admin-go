@@ -37,6 +37,33 @@ func (h *GameInstallationHandler) Register(v2 *gin.RouterGroup) {
 	})
 	v2.POST("/runtime-targets/game-installations/actions/install", h.submit(false))
 	v2.POST("/runtime-targets/game-installations/actions/adopt", h.submit(true))
+	v2.GET("/runtime-targets/game-installations/steam-login", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
+		status, err := h.service.SteamLogin(c.Request.Context(), c.Query("targetId"), c.Query("installationId"), shared.SteamLoginRequest{Action: "status"})
+		if err != nil {
+			gameInstallationFailure(c, err)
+			return
+		}
+		Success(c, 200, status)
+	})
+	v2.POST("/runtime-targets/game-installations/steam-login", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
+		var input struct {
+			TargetID       string `json:"targetId" binding:"required"`
+			InstallationID string `json:"installationId" binding:"required"`
+			shared.SteamLoginRequest
+		}
+		if c.ShouldBindJSON(&input) != nil || input.Action == "status" {
+			Failure(c, 400, "INVALID_STEAM_LOGIN", "Steam 登录请求无效", nil)
+			return
+		}
+		status, err := h.service.SteamLogin(c.Request.Context(), input.TargetID, input.InstallationID, input.SteamLoginRequest)
+		if err != nil {
+			gameInstallationFailure(c, err)
+			return
+		}
+		Success(c, 200, status)
+	})
 }
 
 type gameInstallationInput struct {
