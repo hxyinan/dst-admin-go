@@ -3,9 +3,12 @@ package systemsettings
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"mime"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"strconv"
 	"strings"
@@ -13,6 +16,59 @@ import (
 )
 
 func (s *Service) TestSMTP(ctx context.Context, input SMTPTestInput) (SMTPTestResult, error) {
+	return s.withSMTP(ctx, input, nil)
+}
+
+// SendMail uses the current SMTP settings without restarting the Controller.
+func (s *Service) SendMail(ctx context.Context, recipients []string, subject, body string) error {
+	runtime, err := s.Runtime()
+	if err != nil {
+		return err
+	}
+	from, err := mail.ParseAddress(runtime.SenderEmail)
+	if err != nil || len(recipients) == 0 || len(recipients) > 20 || strings.ContainsAny(subject+runtime.SenderEmail, "\r\n\x00") {
+		return ErrInvalidInput
+	}
+	addresses := make([]string, 0, len(recipients))
+	for _, value := range recipients {
+		address, err := mail.ParseAddress(value)
+		if err != nil || strings.ContainsAny(value, "\r\n\x00") {
+			return ErrInvalidInput
+		}
+		addresses = append(addresses, address.Address)
+	}
+	input := SMTPTestInput{Server: runtime.SMTPServer, Port: runtime.SMTPPort, Username: runtime.SMTPUsername, Password: runtime.SMTPPassword}
+	_, err = s.withSMTP(ctx, input, func(client *smtp.Client) error {
+		if err := client.Mail(from.Address); err != nil {
+			return err
+		}
+		for _, address := range addresses {
+			if err := client.Rcpt(address); err != nil {
+				return err
+			}
+		}
+		writer, err := client.Data()
+		if err != nil {
+			return err
+		}
+		encoded := base64.StdEncoding.EncodeToString([]byte(body))
+		var lines strings.Builder
+		for len(encoded) > 76 {
+			lines.WriteString(encoded[:76] + "\r\n")
+			encoded = encoded[76:]
+		}
+		lines.WriteString(encoded + "\r\n")
+		message := "From: " + from.String() + "\r\nTo: " + strings.Join(addresses, ", ") + "\r\nSubject: " + mime.QEncoding.Encode("UTF-8", subject) + "\r\nDate: " + time.Now().Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" + lines.String()
+		if _, err := writer.Write([]byte(message)); err != nil {
+			_ = writer.Close()
+			return err
+		}
+		return writer.Close()
+	})
+	return err
+}
+
+func (s *Service) withSMTP(ctx context.Context, input SMTPTestInput, deliver func(*smtp.Client) error) (SMTPTestResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
 
@@ -47,6 +103,8 @@ func (s *Service) TestSMTP(ctx context.Context, input SMTPTestInput) (SMTPTestRe
 		return failedSMTPStage(result, "connect", err)
 	}
 	defer connection.Close()
+	stopCancellation := context.AfterFunc(ctx, func() { _ = connection.Close() })
+	defer stopCancellation()
 	if deadline, ok := ctx.Deadline(); ok {
 		if err := connection.SetDeadline(deadline); err != nil {
 			return failedSMTPStage(result, "connect", err)
@@ -103,6 +161,11 @@ func (s *Service) TestSMTP(ctx context.Context, input SMTPTestInput) (SMTPTestRe
 	}
 	if err := client.Noop(); err != nil {
 		return failedSMTPStage(result, "verify", err)
+	}
+	if deliver != nil {
+		if err := deliver(client); err != nil {
+			return failedSMTPStage(result, "send", err)
+		}
 	}
 	result.Stages = append(result.Stages, SMTPTestStage{Name: "verify", Status: "success", Detail: "SMTP NOOP accepted"})
 	_ = client.Quit()

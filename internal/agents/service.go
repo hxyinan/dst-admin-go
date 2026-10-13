@@ -682,6 +682,23 @@ func (s *Service) Agents() ([]Agent, bool, error) {
 	return items, s.transport.Available(), nil
 }
 
+// CachedAgents reads the last synchronized state without syncing transport or
+// inventory again. Event consumers use this after topology change callbacks.
+func (s *Service) CachedAgents() ([]Agent, error) {
+	items, err := s.store.Agents()
+	if err != nil {
+		return nil, err
+	}
+	names, err := s.store.NodeDisplayNames()
+	if err != nil {
+		return nil, err
+	}
+	for index := range items {
+		items[index].DisplayName = effectiveAgentDisplayName(items[index], names)
+	}
+	return items, nil
+}
+
 func (s *Service) Agent(id string) (Agent, error) {
 	if !agentIDPattern.MatchString(id) {
 		return Agent{}, ErrAgentNotFound

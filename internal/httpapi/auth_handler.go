@@ -15,13 +15,14 @@ import (
 )
 
 type AuthHandler struct {
-	service   *authn.Service
-	mu        sync.Mutex
-	failures  map[string]loginFailure
-	now       func() time.Time
-	nextSweep time.Time
-	policy    func() LoginSecurityPolicy
-	ui        func() UIPreferences
+	service    *authn.Service
+	mu         sync.Mutex
+	failures   map[string]loginFailure
+	now        func() time.Time
+	nextSweep  time.Time
+	policy     func() LoginSecurityPolicy
+	ui         func() UIPreferences
+	loginAlert func(string)
 }
 
 type LoginSecurityPolicy struct {
@@ -69,6 +70,8 @@ func (h *AuthHandler) SetUIPreferencesProvider(provider func() UIPreferences) {
 		h.ui = provider
 	}
 }
+
+func (h *AuthHandler) SetLoginAlert(callback func(string)) { h.loginAlert = callback }
 
 func (h *AuthHandler) Register(group *gin.RouterGroup) {
 	group.GET("/session", h.Session)
@@ -290,7 +293,6 @@ func (h *AuthHandler) recordFailure(key string) {
 
 func (h *AuthHandler) recordFailureLimit(key string, limit int) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	now := h.now()
 	h.sweepFailures(now)
 	failure, exists := h.failures[key]
@@ -318,6 +320,14 @@ func (h *AuthHandler) recordFailureLimit(key string, limit int) {
 		failure.blockedUntil = failure.expiresAt
 	}
 	h.failures[key] = failure
+	alert := h.loginAlert
+	h.mu.Unlock()
+	if failure.count == limit && alert != nil {
+		ip := strings.SplitN(key, "\x00", 2)[0]
+		if ip != "ip" {
+			alert(ip)
+		}
+	}
 }
 
 func (h *AuthHandler) clearFailure(key string) {

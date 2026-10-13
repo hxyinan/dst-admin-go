@@ -29,6 +29,7 @@ type Config struct {
 	Ready              func() bool
 	FreeSpace          func(context.Context, string) (uint64, error)
 	ValidateExecutable func(context.Context, string, string, string) error
+	OnAvailable        func(string)
 }
 
 type Service struct {
@@ -174,7 +175,11 @@ func (s *Service) Check(ctx context.Context, force bool, source string) (Snapsho
 		_, known := NormalizeVersion(s.config.Current.Version)
 		s.check.HasUpdate = known && CompareVersions(release.Version, s.config.Current.Version) > 0
 	}
+	available := err == nil && s.check.HasUpdate
 	s.mu.Unlock()
+	if available && s.config.OnAvailable != nil {
+		s.config.OnAvailable(release.Version)
+	}
 	return s.Snapshot()
 }
 

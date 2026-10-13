@@ -388,6 +388,136 @@ paths:
               schema:
                 $ref: "#/components/schemas/SMTPTestResultEnvelope"
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
+  /system/notifications/channels:
+    get:
+      tags: [System]
+      operationId: listNotificationChannels
+      summary: List Controller notification channels without endpoint credentials
+      responses:
+        "200":
+          description: Channels and selectable event kinds
+          headers: { Cache-Control: { schema: { type: string }, description: Always no-store } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/NotificationChannelsEnvelope" } } }
+    post:
+      tags: [System]
+      operationId: createNotificationChannel
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationChannelInput" } } } }
+      responses:
+        "200":
+          description: Created notification channel
+          content: { application/json: { schema: { $ref: "#/components/schemas/NotificationChannelEnvelope" } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+  /system/notifications/channels/{channelId}:
+    parameters: [{ $ref: "#/components/parameters/NotificationChannelID" }]
+    put:
+      tags: [System]
+      operationId: updateNotificationChannel
+      summary: Update a channel using its current revision
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/NotificationChannelInput" } } } }
+      responses:
+        "200":
+          description: Saved channel; blank URL and omitted headers preserve stored credentials
+          content: { application/json: { schema: { $ref: "#/components/schemas/NotificationChannelEnvelope" } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+    delete:
+      tags: [System]
+      operationId: deleteNotificationChannel
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision]
+              properties:
+                revision: { type: string }
+      responses:
+        "200":
+          description: Channel deleted; delivery history retained
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: object, properties: { deleted: { type: boolean } } }
+                  meta: { $ref: "#/components/schemas/Meta" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /system/notifications/channels/{channelId}/actions/test:
+    parameters: [{ $ref: "#/components/parameters/NotificationChannelID" }]
+    post:
+      tags: [System]
+      operationId: testNotificationChannel
+      summary: Queue a real test send, including for a disabled channel
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      responses:
+        "202":
+          description: Queued delivery; inspect delivery history for recipient acceptance
+          content: { application/json: { schema: { $ref: "#/components/schemas/NotificationDeliveriesEnvelope" } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /system/notifications/deliveries:
+    get:
+      tags: [System]
+      operationId: listNotificationDeliveries
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Delivery history, newest first; endpoint credentials and raw task logs are omitted
+          headers: { Cache-Control: { schema: { type: string }, description: Always no-store } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/NotificationDeliveriesEnvelope" } } }
+  /system/notifications/deliveries/{deliveryId}/actions/retry:
+    parameters: [{ $ref: "#/components/parameters/NotificationDeliveryID" }]
+    post:
+      tags: [System]
+      operationId: retryNotificationDelivery
+      summary: Requeue a failed delivery; an interrupted send may already have reached its recipient
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      responses:
+        "202":
+          description: Failed delivery queued again
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: object, properties: { queued: { type: boolean } } }
+                  meta: { $ref: "#/components/schemas/Meta" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /system/notifications/actions/send:
+    post:
+      tags: [System]
+      operationId: sendCustomNotification
+      summary: Send a custom message to enabled channels subscribed to custom events
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, message]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+                message: { type: string, minLength: 1, maxLength: 8192 }
+      responses:
+        "202":
+          description: Queued custom message
+          content: { application/json: { schema: { $ref: "#/components/schemas/NotificationDeliveriesEnvelope" } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /rooms:
     get:
       tags: [Rooms]
@@ -4773,6 +4903,16 @@ components:
       in: cookie
       name: dst_admin_session
   parameters:
+    NotificationChannelID:
+      name: channelId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    NotificationDeliveryID:
+      name: deliveryId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[a-f0-9]{64}$' }
     CSRFToken:
       name: X-CSRF-Token
       in: header
@@ -4947,6 +5087,110 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
   schemas:
+    NotificationEventKind:
+      type: string
+      enum: [room.result, backup.result, game.result, mod.result, agent.status, security.login, software.available, custom]
+    NotificationChannelInput:
+      type: object
+      required: [name, type, enabled, events]
+      properties:
+        revision: { type: string, description: Required for updates; use the current channel revision }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        type: { type: string, enum: [email, webhook] }
+        enabled: { type: boolean }
+        events: { type: array, maxItems: 8, items: { $ref: "#/components/schemas/NotificationEventKind" } }
+        failuresOnly: { type: boolean, description: Skips success and informational events; explicit test sends bypass this filter }
+        recipients: { type: array, minItems: 1, maxItems: 20, items: { type: string, format: email }, description: Required for email channels }
+        url: { type: string, maxLength: 4096, writeOnly: true, description: HTTP/HTTPS endpoint. Required for new Webhooks; blank preserves the stored endpoint. }
+        headers:
+          type: object
+          maxProperties: 20
+          writeOnly: true
+          additionalProperties: { type: string, maxLength: 4096 }
+          description: Omit to preserve stored headers; an empty object clears them
+        method: { type: string, enum: [POST, PUT], default: POST }
+        format: { type: string, enum: [json, text], default: json }
+        template:
+          type: string
+          maxLength: 32768
+          description: Double-brace variables in string values are substituted safely. Variables are id, event, title, message, status, roomId, targetId, jobId, timestamp.
+        responseMode: { type: string, enum: [http, wecom, dingtalk, feishu], default: http, description: Validates HTTP acceptance or provider response codes }
+    NotificationChannel:
+      type: object
+      required: [id, revision, name, type, enabled, events, failuresOnly, urlConfigured, headersConfigured, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        revision: { type: string }
+        name: { type: string }
+        type: { type: string, enum: [email, webhook] }
+        enabled: { type: boolean }
+        events: { type: array, items: { $ref: "#/components/schemas/NotificationEventKind" } }
+        failuresOnly: { type: boolean }
+        recipients: { type: array, nullable: true, items: { type: string, format: email } }
+        method: { type: string }
+        format: { type: string }
+        template: { type: string }
+        responseMode: { type: string }
+        urlConfigured: { type: boolean }
+        headersConfigured: { type: boolean }
+        updatedAt: { type: string, format: date-time }
+    NotificationEvent:
+      type: object
+      required: [id, kind, title, message, status, severity, occurredAt]
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/NotificationEventKind" }
+        title: { type: string }
+        message: { type: string }
+        status: { type: string }
+        severity: { type: string, enum: [info, warning, error] }
+        roomId: { type: string }
+        targetId: { type: string }
+        jobId: { type: string }
+        occurredAt: { type: string, format: date-time }
+    NotificationDelivery:
+      type: object
+      required: [id, channelId, channelName, event, status, attempts, createdAt, nextAttemptAt]
+      properties:
+        id: { type: string }
+        channelId: { type: string }
+        channelName: { type: string }
+        event: { $ref: "#/components/schemas/NotificationEvent" }
+        status: { type: string, enum: [queued, sending, sent, failed, canceled] }
+        attempts: { type: integer, minimum: 0 }
+        errorCode: { type: string }
+        httpStatus: { type: integer }
+        createdAt: { type: string, format: date-time }
+        nextAttemptAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+    NotificationChannelEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: "#/components/schemas/NotificationChannel" }
+        meta: { $ref: "#/components/schemas/Meta" }
+    NotificationChannelsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items, events]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/NotificationChannel" } }
+            events: { type: array, items: { $ref: "#/components/schemas/NotificationEventKind" } }
+        meta: { $ref: "#/components/schemas/Meta" }
+    NotificationDeliveriesEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/NotificationDelivery" } }
+            total: { type: integer, description: Present on history responses }
+        meta: { $ref: "#/components/schemas/Meta" }
     Meta:
       type: object
       required: [requestId]

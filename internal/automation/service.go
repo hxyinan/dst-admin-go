@@ -205,6 +205,17 @@ func (s *Service) Runs(roomID string, filter RunFilter) (RunList, error) {
 	return s.store.Runs(roomID, filter)
 }
 
+// CompletedAction returns the action actually executed, including whether an
+// empty-room update was skipped. Notification hooks must not query editable
+// task configuration after completion or announce a no-op as an update.
+func (s *Service) CompletedAction(jobID string) (Action, bool, error) {
+	var record runRecord
+	if err := s.store.db.Table(s.store.runsTable).Where("job_id = ?", jobID).First(&record).Error; err != nil {
+		return "", false, err
+	}
+	return Action(record.Action), RunStatus(record.Status) == RunSkipped, nil
+}
+
 func (s *Service) Run(roomID, runID string) (Run, error) {
 	if !validID(runID) {
 		return Run{}, ErrRunNotFound

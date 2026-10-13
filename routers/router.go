@@ -43,6 +43,7 @@ import (
 	"dont/internal/modpublication"
 	modservice "dont/internal/mods"
 	"dont/internal/modupdates"
+	"dont/internal/notifications"
 	"dont/internal/operationlease"
 	"dont/internal/placementmigration"
 	playerapi "dont/internal/players"
@@ -432,6 +433,37 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 		return nil, err
 	}
 	systemSettingsHandler := httpapi.NewSystemSettingsHandler(systemSettingsService)
+	notificationStore := notifications.NewStore(models.DB(), tablePrefix, filepath.Join(filepath.Dir(config.ConfigPath), "notifications"))
+	if err := notificationStore.Migrate(); err != nil {
+		return nil, err
+	}
+	notificationService, err := notifications.New(notificationStore, systemSettingsService)
+	if err != nil {
+		return nil, err
+	}
+	notificationHandler := httpapi.NewNotificationsHandler(notificationService)
+	jobService.AddCompletionListener(notificationService.OnJob)
+	observeNotificationAgents := func() {
+		if !notificationService.Active("agent.status") {
+			return
+		}
+		items, err := agentService.CachedAgents()
+		if err != nil {
+			return
+		}
+		for _, item := range items {
+			notificationService.ObserveAgent(item.ID, item.DisplayName, string(item.Status))
+		}
+	}
+	notificationService.SetChannelChangeListener(observeNotificationAgents)
+	observeNotificationAgents()
+	agentService.AddRuntimeTopologyListener(observeNotificationAgents)
+	authHandler.SetLoginAlert(func(ip string) {
+		notificationService.Emit(notifications.Event{Kind: "security.login", Title: "登录尝试已被限制 / Sign-in attempts blocked", Message: "来源 / Source: " + ip + "\n连续登录失败已触发限制 / Repeated failed sign-in attempts triggered the limit.", Status: "blocked", Severity: "warning"})
+	})
+	if backgroundEnabled {
+		hooks.workers = append(hooks.workers, notificationService.Run)
+	}
 	softwareRoot, err := softwareupdate.DefaultRoot(config.ConfigPath)
 	if err != nil {
 		return nil, err
@@ -439,6 +471,9 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	softwareService := softwareupdate.New(softwareupdate.Config{
 		Root: softwareRoot, Current: buildinfo.Current(), BaseVersion: os.Getenv("DST_ADMIN_UPDATE_BASE_VERSION"),
 		Platform: runtime.GOOS + "-" + runtime.GOARCH, Managed: softwareupdate.ManagedChild(),
+		OnAvailable: func(version string) {
+			notificationService.Emit(notifications.Event{ID: "software:" + version, Kind: "software.available", Title: "DST Admin 发现新版 / Update available", Message: version + "\n在系统设置 → 软件更新查看 / Open System settings → Software updates.", Status: "available", Severity: "info"})
+		},
 	})
 	softwareHandler := httpapi.NewSystemSoftwareHandler(softwareService)
 	hooks.stop = append(hooks.stop, softwareService.Close)
@@ -1056,6 +1091,17 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	if err != nil {
 		return nil, err
 	}
+	jobService.AddCompletionListener(func(job jobs.Job) {
+		if job.Kind != "automation.run" || !(notificationService.Active("room.result") || notificationService.Active("backup.result") || notificationService.Active("game.result")) {
+			return
+		}
+		action, skipped, err := automationService.CompletedAction(job.ID)
+		if err != nil || skipped {
+			return
+		}
+		job.Kind = string(action)
+		notificationService.OnJob(job)
+	})
 	legacyMigration, err := automation.MigrateLegacyCronTasks(models.DB(), tablePrefix, roomService, automationService)
 	if err != nil {
 		return nil, err
@@ -1345,6 +1391,7 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 		roomProvisionHandler.Register(v2)
 		systemStatusHandler.Register(v2)
 		systemSettingsHandler.Register(v2)
+		notificationHandler.Register(v2)
 		softwareHandler.Register(v2)
 		entityCatalogHandler.Register(v2)
 		artworkPackHandler.Register(v2)

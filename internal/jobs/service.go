@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -51,12 +52,14 @@ func (b *Broker) Publish() {
 }
 
 type Service struct {
-	submitMu sync.Mutex
-	paused   bool
-	store    *Store
-	broker   *Broker
-	mu       sync.Mutex
-	cancels  map[string]context.CancelFunc
+	submitMu            sync.Mutex
+	paused              bool
+	store               *Store
+	broker              *Broker
+	mu                  sync.Mutex
+	cancels             map[string]context.CancelFunc
+	completionMu        sync.RWMutex
+	completionListeners []func(Job)
 }
 
 func NewService(store *Store, broker *Broker) (*Service, error) {
@@ -192,6 +195,33 @@ func (s *Service) Subscribe() (<-chan struct{}, func()) { return s.broker.Subscr
 // refetch authoritative resources after receiving the refresh event.
 func (s *Service) Notify() { s.broker.Publish() }
 
+// Completion listeners consume the persisted terminal result, once per run.
+// They must enqueue work rather than performing network requests here.
+func (s *Service) AddCompletionListener(listener func(Job)) {
+	if listener == nil {
+		return
+	}
+	s.completionMu.Lock()
+	s.completionListeners = append(s.completionListeners, listener)
+	s.completionMu.Unlock()
+}
+
+func (s *Service) notifyCompletion(job Job) {
+	s.completionMu.RLock()
+	listeners := append([]func(Job){}, s.completionListeners...)
+	s.completionMu.RUnlock()
+	for _, listener := range listeners {
+		func() {
+			defer func() {
+				if recover() != nil {
+					log.Print("[Jobs] completion listener failed")
+				}
+			}()
+			listener(job)
+		}()
+	}
+}
+
 func (s *Service) run(ctx context.Context, jobID string, runner Runner) {
 	defer func() {
 		s.mu.Lock()
@@ -229,7 +259,8 @@ func (s *Service) run(ctx context.Context, jobID string, runner Runner) {
 			s.broker.Publish()
 		}
 	}
-	if _, _, err := s.store.Complete(jobID, runnerErr, ctx.Err() != nil); err == nil {
+	if completed, _, err := s.store.Complete(jobID, runnerErr, ctx.Err() != nil); err == nil {
 		s.broker.Publish()
+		s.notifyCompletion(completed)
 	}
 }
