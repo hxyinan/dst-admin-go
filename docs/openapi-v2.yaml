@@ -4133,6 +4133,42 @@ paths:
       responses:
         "200": { description: "Installation rows with exact targetId and installationId, online status, installed flag, gameVersion, serverPath, resolvedPath, savePath, SteamCMD availability, supported actions and per-node errors" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /runtime-targets/game-installations/steam-login:
+    get:
+      tags: [Runtime]
+      operationId: observeNodeSteamLogin
+      summary: Read node-local Steam login settings without returning credentials or contacting Steam
+      parameters:
+        - { name: targetId, in: query, required: true, schema: { type: string } }
+        - { name: installationId, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "mode (anonymous/account/unavailable), username, passwordSet, state, sessionId, errorCode, updatedAt, optional expiresAt and recoveryRequired; never password or code. Unreadable credentials return recoveryRequired=true with CREDENTIALS_UNAVAILABLE and block downloads until an explicit reset." }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+    post:
+      tags: [Runtime]
+      operationId: manageNodeSteamLogin
+      summary: Configure account login or interact with a bounded Steam Guard session on the selected node
+      description: Anonymous is the default. Credentials are encrypted on the runtime node. Installations using the same SteamCMD executable share settings. Requires runtime.steam-login.v1 on remote Agents. Verification lasts at most four minutes. Scheduled downloads needing Guard fail clearly and can be retried after verification. An explicit reset clears only the selected SteamCMD profile and switches it to anonymous, without changing other accounts or game files. Reset accepts no mode, username, password, code or sessionId and is rejected during downloads or login verification.
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetId, installationId, action]
+              properties:
+                targetId: { type: string }
+                installationId: { type: string }
+                action: { type: string, enum: [configure, login, code, cancel, reset] }
+                mode: { type: string, enum: [anonymous, account] }
+                username: { type: string, maxLength: 64 }
+                password: { type: string, maxLength: 256, writeOnly: true, description: Omit or leave blank to retain the saved password for the same account }
+                sessionId: { type: string, maxLength: 128 }
+                code: { type: string, pattern: '^[A-Za-z0-9]{5}$', writeOnly: true }
+      responses:
+        "200": { description: "Sanitized login status. Verification runs asynchronously; read only while a login is active." }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /runtime-targets/game-installations/probe:
     post:
       tags: [Runtime]

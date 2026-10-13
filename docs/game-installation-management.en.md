@@ -8,7 +8,7 @@ Offline nodes and failed inspections are not reported as an uninstalled game.
 
 ## Install and update
 
-1. Configure SteamCMD on the target machine and register its game and save directories.
+1. Configure SteamCMD on the target machine (executable, installation directory or command in PATH) and register its game and save directories.
 2. Confirm that every world using that installation has stopped.
 3. Click **Install game server** or **Update / validate** for the intended machine and installation, then wait for the job to finish.
 4. After first installation, create a room, import saves, or continue with LuaJIT2 installation below.
@@ -31,6 +31,38 @@ SteamCMD validation can overwrite the LuaJIT launcher. Reinstall/repair LuaJIT b
 
 If a game update fails and remains retryable, its pre-update protection backups cannot be deleted. A retry checks the original backup files and their integrity. Missing or damaged files block the update and require recovery; the system does not replace the original protection with data from after the update.
 
+## Optional Steam account login
+
+Choose **Steam login** on the selected node. Anonymous is the default. Select
+**Steam account**, enter the login name and password, and choose **Save and verify login**.
+If Steam Guard requests verification, enter the current email or authenticator code,
+or approve the login in the Steam mobile app as prompted.
+Once verified, install, update or retry the download.
+
+Game installation, manual and unattended game updates, and mod downloads share
+the node's login settings. Installations using the same SteamCMD executable share
+one account. Agents perform their own login and downloads; the Controller does not
+store remote passwords. Older Agents need `runtime.steam-login.v1` support.
+
+Credentials are encrypted under `steam-auth/` next to the management or Agent
+configuration. Keep the encryption key and configuration together. Passwords are
+never returned to the UI or included in process arguments, task logs or Agent
+command history. Leave the password blank to retain it for the same account.
+Saving anonymous mode removes the panel's saved account and password.
+
+Verification lasts at most four minutes. Only active login sessions are polled.
+Unattended downloads requiring Steam Guard return a clear verification error;
+they never wait indefinitely or silently switch to anonymous. Account login does
+not fix network, storage or filesystem permission failures. The optional
+pre-API `DST_ADMIN_BOOTSTRAP_DST=true` bootstrap remains anonymous; use the UI
+installation flow for account login.
+
+If stored credentials or their key cannot be read, the UI offers **Reset login
+settings** and downloads stop without switching to anonymous automatically.
+After administrator confirmation, only the panel login settings shared by this
+SteamCMD are cleared. Use anonymous login or configure the account again.
+Other SteamCMD accounts, game files and saves are preserved.
+
 ## Use an existing server on the machine
 
 If a registered installation location is empty or absent, click **Use an existing server** and enter an absolute path on the **selected machine**.
@@ -51,7 +83,7 @@ The installer does not delete saves or automatically stop/start worlds.
 
 ## API and workload
 
-All endpoints are under `/api/v2`. Mutations return background jobs:
+All endpoints are under `/api/v2`. Installation and adoption return background jobs; login settings return sanitized status directly:
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -59,6 +91,8 @@ All endpoints are under `/api/v2`. Mutations return background jobs:
 | `POST /runtime-targets/game-installations/probe` | Inspect an existing directory |
 | `POST /runtime-targets/game-installations/actions/install` | Install or validate the registered location |
 | `POST /runtime-targets/game-installations/actions/adopt` | Confirm adoption of an existing directory |
+| `GET /runtime-targets/game-installations/steam-login` | Read the selected node's login method and verification state |
+| `POST /runtime-targets/game-installations/steam-login` | Configure, verify, submit a code or cancel verification |
 
 Operations require exact `targetId` and `installationId` values. Inspection also requires `path`; adoption additionally requires the returned `fingerprint`.
 Installation does not accept arbitrary destination paths. Remote failures do not fall back to the local host.
