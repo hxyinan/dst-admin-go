@@ -7,11 +7,12 @@ import (
 	"regexp"
 	"time"
 
+	"dont/internal/dstruntime"
 	"dont/internal/runtimefiles"
 	"dont/shared"
 )
 
-const snapshotBarrierRuntimeVersion = "2.4.6"
+const snapshotBarrierRuntimeVersion = dstruntime.RuntimeVersion
 
 var snapshotBarrierID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{7,127}$`)
 
@@ -61,8 +62,10 @@ func prepareSnapshotBarrier(ctx context.Context, driver Driver, target Target, o
 	}
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
+	var observationErr error
 	for {
 		receipt, err := observeSnapshotBarrier(ctx, driver, target, barrierID)
+		observationErr = err
 		if err == nil && (receipt.State == "prepared" || receipt.State == "completed") {
 			return receipt, nil
 		}
@@ -71,7 +74,7 @@ func prepareSnapshotBarrier(ctx context.Context, driver Driver, target Target, o
 		}
 		select {
 		case <-ctx.Done():
-			return SnapshotBarrierReceipt{}, ctx.Err()
+			return SnapshotBarrierReceipt{}, errors.Join(ctx.Err(), observationErr)
 		case <-ticker.C:
 		}
 	}
@@ -111,7 +114,10 @@ func observeSnapshotBarrier(ctx context.Context, driver Driver, target Target, b
 		return SnapshotBarrierReceipt{}, err
 	}
 	receipt.ReadAt = bundle.Artifacts[0].UpdatedAt
-	if receipt.SchemaVersion != 1 || receipt.ProducerVersion != snapshotBarrierRuntimeVersion || receipt.BarrierID != barrierID ||
+	if receipt.ProducerVersion != snapshotBarrierRuntimeVersion {
+		return SnapshotBarrierReceipt{}, fmt.Errorf("snapshot barrier runtime version %q does not match %q", receipt.ProducerVersion, snapshotBarrierRuntimeVersion)
+	}
+	if receipt.SchemaVersion != 1 || receipt.BarrierID != barrierID ||
 		receipt.ProducerInstanceID == "" || receipt.SessionID == "" || receipt.ShardID == "" || receipt.PreparedAtUnix < 1 || receipt.SnapshotBefore < 0 {
 		return SnapshotBarrierReceipt{}, errors.New("snapshot barrier receipt is invalid or stale")
 	}

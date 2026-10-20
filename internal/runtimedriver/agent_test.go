@@ -5,11 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"dont/internal/agents"
+	"dont/internal/dstruntime"
 	"dont/internal/runtimefiles"
 	"dont/shared"
 )
@@ -217,7 +219,7 @@ func TestAgentDriverMarksConfirmedMigrationPeerFailureAsFallbackSafe(t *testing.
 }
 
 func TestSnapshotBarrierAcceptsRealKLEIPersistentJSON(t *testing.T) {
-	data := []byte(`KLEI     1 {"schemaVersion":1,"producerVersion":"2.4.6","producerInstanceId":"barrier-instance","barrierId":"hot-test-0001","state":"prepared","sessionId":"SESSION","shardId":"2","snapshotBefore":7,"preparedAtUnix":1787118371}`)
+	data := []byte(fmt.Sprintf(`KLEI     1 {"schemaVersion":1,"producerVersion":%q,"producerInstanceId":"barrier-instance","barrierId":"hot-test-0001","state":"prepared","sessionId":"SESSION","shardId":"2","snapshotBefore":7,"preparedAtUnix":1787118371}`, dstruntime.RuntimeVersion))
 	driver, err := NewAgent(barrierArtifactExecutor{data: data})
 	if err != nil {
 		t.Fatal(err)
@@ -225,6 +227,14 @@ func TestSnapshotBarrierAcceptsRealKLEIPersistentJSON(t *testing.T) {
 	receipt, err := driver.SnapshotBarrier(context.Background(), Target{TargetID: "agent:node", InstallationID: "container", Cluster: "Cluster", Shard: "Caves"}, "hot-test-0001")
 	if err != nil || receipt.State != "prepared" || receipt.SnapshotBefore != 7 || receipt.ProducerInstanceID != "barrier-instance" {
 		t.Fatalf("receipt=%#v err=%v", receipt, err)
+	}
+	oldData := []byte(strings.Replace(string(data), dstruntime.RuntimeVersion, "2.4.6", 1))
+	oldDriver, err := NewAgent(barrierArtifactExecutor{data: oldData})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = oldDriver.SnapshotBarrier(context.Background(), Target{TargetID: "agent:node", InstallationID: "container", Cluster: "Cluster", Shard: "Caves"}, "hot-test-0001"); err == nil || !strings.Contains(err.Error(), "runtime version") {
+		t.Fatal("outdated runtime receipt was accepted or lost its version error", err)
 	}
 }
 
