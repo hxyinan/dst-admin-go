@@ -414,6 +414,9 @@ func (s *Store) Get(jobID string) (Job, error) {
 
 func (s *Store) List(filter ListFilter) ([]Job, int, error) {
 	query := s.db.Table(s.jobsTable)
+	if filter.RoomID != "" {
+		query = query.Where("room_id = ?", filter.RoomID)
+	}
 	if filter.Status != "" {
 		query = query.Where("status = ?", filter.Status)
 	}

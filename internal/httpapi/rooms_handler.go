@@ -404,18 +404,22 @@ func (h *RoomHandler) action(c *gin.Context) {
 		worldID = request.WorldIDs[0]
 	}
 	requestID := RequestID(c)
+	source := runtimeaudit.SourceAPI
+	if c.GetBool("dst_admin.ai_action") {
+		source = runtimeaudit.SourceAI
+	}
 	job, err := h.jobs.SubmitFactory("room."+string(action), roomID, worldID, targets, func(job jobs.Job) jobs.Runner {
 		return func(ctx context.Context, report func(jobs.TargetResult)) error {
 			if h.audit != nil {
 				if auditErr := h.audit.RecordAction(runtimeaudit.ActionRequest{
-					RoomID: roomID, WorldIDs: request.WorldIDs, Action: string(action), Source: runtimeaudit.SourceAPI,
+					RoomID: roomID, WorldIDs: request.WorldIDs, Action: string(action), Source: source,
 					JobID: job.ID, RequestID: requestID,
 				}); auditErr != nil {
 					log.Printf("[RuntimeAudit] record API action room=%s action=%s: %v", roomID, action, auditErr)
 				}
 			}
 			ctx = shards.WithOperationAudit(ctx, shards.OperationAuditMetadata{
-				JobID: job.ID, RequestID: requestID, Source: string(runtimeaudit.SourceAPI),
+				JobID: job.ID, RequestID: requestID, Source: string(source),
 			})
 			return h.runActionJob(ctx, job.ID, action, targets, runner, report)
 		}

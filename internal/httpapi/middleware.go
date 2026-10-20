@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"dont/internal/aicontrol"
 	"dont/internal/authn"
 	"dont/internal/systemsettings"
 
@@ -33,6 +34,9 @@ func RequestContext() gin.HandlerFunc {
 			requestID = uuid.NewString()
 		}
 		c.Set(requestIDKey, requestID)
+		if aicontrol.Metadata(c.Request.Context()) != nil {
+			c.Set("dst_admin.ai_action", true)
+		}
 		c.Header("X-Request-ID", requestID)
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-Frame-Options", "DENY")
@@ -81,13 +85,30 @@ func SameOrigin() gin.HandlerFunc {
 	}
 }
 
-func RequireSession(service *authn.Service) gin.HandlerFunc {
+type BearerAuthenticator func(string) (authn.Admin, error)
+
+func RequireSession(service *authn.Service, bearer ...BearerAuthenticator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method == http.MethodOptions {
 			c.Next()
 			return
 		}
 		if _, ok := publicAPIRoutes[publicRoute{method: c.Request.Method, path: c.Request.URL.Path}]; ok {
+			c.Next()
+			return
+		}
+		if header := c.GetHeader("Authorization"); header != "" && len(bearer) > 0 {
+			scheme, token, ok := strings.Cut(header, " ")
+			if !ok || !strings.EqualFold(scheme, "Bearer") {
+				Failure(c, 401, "API_TOKEN_INVALID", "接入密钥无效", nil)
+				return
+			}
+			admin, err := bearer[0](token)
+			if err != nil || admin.ID < 1 {
+				Failure(c, 401, "API_TOKEN_INVALID", "接入密钥无效或已撤销", nil)
+				return
+			}
+			c.Set(authn.ContextAdminKey, admin)
 			c.Next()
 			return
 		}

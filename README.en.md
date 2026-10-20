@@ -40,6 +40,7 @@
 | **Install the game and LuaJIT2**<br>Install or update the server from the panel, or connect an existing installation. | **Manage rooms and worlds**<br>Create rooms, start or stop Master and Caves, and monitor their status. |
 | **Configure worlds and mods**<br>Edit room and world settings. Enable, configure, and update mods. | **Back up and restore saves**<br>Create backups, import existing saves, and restore your worlds when needed. |
 | **Connect remote machines**<br>Manage other hosts through Agents and check each node's installations and resources. | **See what's happening**<br>Check players, seasons, logs, and chat. Run commands from the console. |
+| **Connect AI**<br>Use the browser assistant or connect external AI through MCP and OpenAPI. | **Investigate and operate with AI**<br>Check runtime state and manage mods, backups, automation and server settings. |
 
 Images and native packages include the web UI. Chinese is the default, with English, color presets, and dark mode available. Animated weather is enabled by default and follows in-game seasons, time of day, and precipitation. You can turn it off or preview it manually.
 
@@ -190,6 +191,8 @@ For remote machines running native game processes, use the native Agent package.
 </details>
 
 ## Explore further
+
+- **AI control and troubleshooting**: [Browser assistant and MCP](docs/ai-assistant.en.md)
 
 - **Run and maintain**: [Game server installation](docs/game-installation-management.en.md) · [LuaJIT2 installation](docs/luajit-installation.en.md) · [Upgrades and rollback](docs/deployment-and-rollback.en.md) · [Game workbench](docs/game-workbench.en.md) · [Email and Webhook notifications](docs/notifications.en.md)
 - **Contribute**: [Development guide](docs/development.en.md) · [Frontend source](https://github.com/lcy0828/dst-admin-vue) · [Issue tracker](https://github.com/lcy0828/dst-admin-go/issues)

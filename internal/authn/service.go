@@ -279,6 +279,30 @@ func (s *Service) CSRFMatches(session Session, csrfToken string) bool {
 	return subtle.ConstantTimeCompare([]byte(session.CSRFToken), []byte(csrfToken)) == 1
 }
 
+// Administrator resolves the existing single administrator for an authenticated
+// automation identity. It never invents an account or creates a login session.
+func (s *Service) Administrator() (Admin, error) {
+	var admins []Admin
+	if err := s.admins().Limit(2).Find(&admins).Error; err != nil {
+		return Admin{}, err
+	}
+	if len(admins) != 1 {
+		return Admin{}, ErrInvalidSession
+	}
+	return admins[0], nil
+}
+
+func (s *Service) AdministratorByID(id int) (Admin, error) {
+	if id == 0 {
+		return s.Administrator()
+	} // Existing API tokens predate owner binding.
+	var admin Admin
+	if err := s.admins().Where("id = ?", id).First(&admin).Error; err != nil {
+		return Admin{}, ErrInvalidSession
+	}
+	return admin, nil
+}
+
 func (s *Service) Logout(rawToken string) error {
 	if rawToken == "" {
 		return nil

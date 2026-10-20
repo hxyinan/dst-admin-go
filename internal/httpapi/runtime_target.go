@@ -21,6 +21,7 @@ var remoteRuntimeControlPrefixes = []string{
 	"/api/v2/system/resources",
 	"/api/v2/system/settings",
 	"/api/v2/system/software",
+	"/api/v2/system/ai",
 }
 
 // RuntimeTargetBoundary prevents a remote selection from falling through to

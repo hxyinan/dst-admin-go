@@ -115,6 +115,7 @@ type Event struct {
 type ListFilter struct {
 	Status Status
 	Kind   string
+	RoomID string
 	Limit  int
 	Offset int
 }

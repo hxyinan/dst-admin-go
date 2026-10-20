@@ -21,6 +21,7 @@ type Source string
 
 const (
 	SourceAPI           Source = "api"
+	SourceAI            Source = "ai"
 	SourceAutomation    Source = "automation"
 	SourceGameUpdate    Source = "game_update"
 	SourceSystemMonitor Source = "system_monitor"

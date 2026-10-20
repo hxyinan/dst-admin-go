@@ -40,6 +40,7 @@
 | **安装游戏与 LuaJIT2**<br>在页面安装、更新服务端，也可接入本机已有安装。 | **管理房间与世界**<br>创建房间，启动或停止 Master、Caves，查看运行状态。 |
 | **配置世界与模组**<br>调整房间和世界设置，管理模组的启用、配置与更新。 | **备份与恢复存档**<br>创建备份、导入已有存档，需要时恢复世界。 |
 | **接入远程机器**<br>通过 Agent 管理其他主机，查看各节点的安装与资源状态。 | **掌握游戏动态**<br>查看在线玩家、季节、日志与聊天记录，执行控制台命令。 |
+| **接入 AI**<br>配置页面助手，或通过 MCP、OpenAPI 连接外部 AI。 | **用 AI 排查与操作**<br>检查运行状态，管理模组、备份、定时任务与服务配置。 |
 
 镜像和原生安装包均内置管理页面。默认中文，支持英文、多套配色与深色模式；动态天气默认开启，跟随游戏中的季节、昼夜和降水，也可关闭或手动预览。
 
@@ -190,6 +191,8 @@ docker compose up -d
 </details>
 
 ## 继续探索
+
+- **AI 控制与排查**：[页面助手与 MCP 接入](docs/ai-assistant.md)
 
 - **开服与维护**：[游戏服务端安装](docs/game-installation-management.md) · [LuaJIT2 安装](docs/luajit-installation.md) · [升级与回滚](docs/deployment-and-rollback.md) · [游戏工作台](docs/game-workbench.md) · [邮箱与 Webhook 通知](docs/notifications.md)
 - **参与开发**：[开发指南](docs/development.md) · [前端源码](https://github.com/lcy0828/dst-admin-vue) · [问题反馈](https://github.com/lcy0828/dst-admin-go/issues)

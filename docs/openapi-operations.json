@@ -1,0 +1,1949 @@
+{
+  "operationsSHA256": "1162d1e33eda442c5cb13b9991788bc900038857b6063706e78135a82dcdd253",
+  "operations": [
+    {
+      "operationId": "activateModPublication",
+      "method": "POST",
+      "path": "/mod-publications/{publicationId}/actions/activate",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "activateWorldRuntime",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/runtime/actions/activate",
+      "transport": "json"
+    },
+    {
+      "operationId": "addModToRoom",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mods/{modId}/actions/add",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "adoptExistingGameInstallation",
+      "method": "POST",
+      "path": "/runtime-targets/game-installations/actions/adopt",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "analyzeSaveImport",
+      "method": "POST",
+      "path": "/save-imports/{importId}/actions/analyze",
+      "transport": "json"
+    },
+    {
+      "operationId": "announceToRoomPlayer",
+      "method": "POST",
+      "path": "/rooms/{roomId}/players/{playerId}/actions/announce",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "applyClusterToken",
+      "method": "POST",
+      "path": "/rooms/{roomId}/cluster-token/actions/apply",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "applyModConfiguration",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/mods/{modId}/configuration/actions/apply",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "applyRoomAccessLists",
+      "method": "POST",
+      "path": "/rooms/{roomId}/access/actions/apply",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "applyRoomConfiguration",
+      "method": "POST",
+      "path": "/rooms/{roomId}/configuration/actions/apply",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "applyRoomModUpdateNow",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mod-update/actions/apply",
+      "transport": "json"
+    },
+    {
+      "operationId": "applyRoomModUpdateWhenEmpty",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mod-update/actions/apply-when-empty",
+      "transport": "json"
+    },
+    {
+      "operationId": "applyRoomShardLinks",
+      "method": "POST",
+      "path": "/rooms/{roomId}/topology/shard-links/actions/apply",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "applyRoomTopologyPlacement",
+      "method": "POST",
+      "path": "/rooms/{roomId}/topology/actions/apply",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "applySaveImport",
+      "method": "POST",
+      "path": "/save-imports/{importId}/actions/apply",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "applySoftwareRelease",
+      "method": "POST",
+      "path": "/system/software/actions/apply",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "applySystemSettings",
+      "method": "POST",
+      "path": "/system/settings/actions/apply",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "applyWorldConfiguration",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/configuration/actions/apply",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "banRoomPlayer",
+      "method": "POST",
+      "path": "/rooms/{roomId}/players/{playerId}/actions/ban",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "cancelArtworkPackDownload",
+      "method": "POST",
+      "path": "/entity-catalog/artwork-pack/cancel",
+      "transport": "json"
+    },
+    {
+      "operationId": "cancelJob",
+      "method": "POST",
+      "path": "/jobs/{jobId}/cancel",
+      "transport": "json"
+    },
+    {
+      "operationId": "captureWorldRuntimeDiagnostic",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/runtime/diagnostics",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "changePassword",
+      "method": "PUT",
+      "path": "/auth/password",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "chatWithAI",
+      "method": "POST",
+      "path": "/system/ai/chat",
+      "contentType": "application/json",
+      "transport": "assistant"
+    },
+    {
+      "operationId": "checkAgentSoftware",
+      "method": "GET",
+      "path": "/agents/{agentId}/software/check",
+      "transport": "json"
+    },
+    {
+      "operationId": "checkModUpdates",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mods/actions/check-updates",
+      "transport": "json"
+    },
+    {
+      "operationId": "checkRoomModUpdate",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mod-update/actions/check",
+      "transport": "json"
+    },
+    {
+      "operationId": "checkSoftwareRelease",
+      "method": "GET",
+      "path": "/system/software/check",
+      "transport": "json"
+    },
+    {
+      "operationId": "clearAutomationRuns",
+      "method": "POST",
+      "path": "/rooms/{roomId}/automation/runs/actions/clear",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "clearCommandRuns",
+      "method": "DELETE",
+      "path": "/rooms/{roomId}/command-runs",
+      "transport": "json"
+    },
+    {
+      "operationId": "clearStructuredLogs",
+      "method": "POST",
+      "path": "/rooms/{roomId}/structured-logs/actions/clear",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "configureAI",
+      "method": "PUT",
+      "path": "/system/ai",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "configureAgentRuntimeTarget",
+      "method": "PUT",
+      "path": "/runtime-targets/agents/{agentId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "configureRoomBackupSchedule",
+      "method": "POST",
+      "path": "/rooms/{roomId}/backup-schedules/actions/configure",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "createAIToken",
+      "method": "POST",
+      "path": "/system/ai/tokens",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "createAutomationGroup",
+      "method": "POST",
+      "path": "/rooms/{roomId}/automation/groups",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "createAutomationTask",
+      "method": "POST",
+      "path": "/rooms/{roomId}/automation/tasks",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "createCommand",
+      "method": "POST",
+      "path": "/commands",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "createDistributedBackupSet",
+      "method": "POST",
+      "path": "/rooms/{roomId}/backup-sets",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "createNotificationChannel",
+      "method": "POST",
+      "path": "/system/notifications/channels",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "createPrivateAIInput",
+      "method": "POST",
+      "path": "/system/ai/private-inputs",
+      "contentType": "application/json",
+      "transport": "assistant"
+    },
+    {
+      "operationId": "createRoom",
+      "method": "POST",
+      "path": "/rooms",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "createRoomBackup",
+      "method": "POST",
+      "path": "/rooms/{roomId}/backups",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "createRoomWorld",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "createStructuredLogRule",
+      "method": "POST",
+      "path": "/rooms/{roomId}/log-rules",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteAIAttachment",
+      "method": "DELETE",
+      "path": "/system/ai/attachments/{attachmentId}",
+      "transport": "assistant"
+    },
+    {
+      "operationId": "deleteAgentRelease",
+      "method": "DELETE",
+      "path": "/agent-releases/{releaseId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteAutomationGroup",
+      "method": "DELETE",
+      "path": "/rooms/{roomId}/automation/groups/{groupId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteAutomationTask",
+      "method": "DELETE",
+      "path": "/rooms/{roomId}/automation/tasks/{taskId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteBackup",
+      "method": "DELETE",
+      "path": "/backups/{backupId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteCommand",
+      "method": "DELETE",
+      "path": "/commands/{commandId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteDistributedBackupSet",
+      "method": "DELETE",
+      "path": "/backup-sets/{backupSetId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteNotificationChannel",
+      "method": "DELETE",
+      "path": "/system/notifications/channels/{channelId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteRoom",
+      "method": "DELETE",
+      "path": "/rooms/{roomId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteRoomWorld",
+      "method": "DELETE",
+      "path": "/rooms/{roomId}/worlds/{worldId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteSaveImport",
+      "method": "DELETE",
+      "path": "/save-imports/{importId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "deleteStructuredLogRule",
+      "method": "DELETE",
+      "path": "/rooms/{roomId}/log-rules/{ruleId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "detectRuntimeNetworkProfileEgress",
+      "method": "POST",
+      "path": "/runtime-infrastructure/network-profiles/{profileId}/actions/detect-egress",
+      "transport": "json"
+    },
+    {
+      "operationId": "discoverRoomShardLinks",
+      "method": "POST",
+      "path": "/rooms/{roomId}/topology/shard-links/actions/discover",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "downloadAIResource",
+      "method": "GET",
+      "path": "/system/ai/resources/{resourceId}",
+      "transport": "assistant"
+    },
+    {
+      "operationId": "downloadBackup",
+      "method": "GET",
+      "path": "/backups/{backupId}/download",
+      "transport": "download"
+    },
+    {
+      "operationId": "downloadDistributedBackupSet",
+      "method": "GET",
+      "path": "/backup-sets/{backupSetId}/download",
+      "transport": "download"
+    },
+    {
+      "operationId": "downloadLuaJITPackage",
+      "method": "POST",
+      "path": "/runtime-targets/luajit/actions/download",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "downloadManagementContract",
+      "method": "GET",
+      "path": "/system/openapi",
+      "transport": "assistant"
+    },
+    {
+      "operationId": "downloadModToNode",
+      "method": "POST",
+      "path": "/mods/library/actions/download",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "downloadPrivateAIResult",
+      "method": "GET",
+      "path": "/system/ai/private-results/{resourceId}",
+      "transport": "assistant"
+    },
+    {
+      "operationId": "downloadRuntimeInstallationMod",
+      "method": "POST",
+      "path": "/runtime-targets/{targetId}/installations/{installationId}/mods/{modId}/actions/download",
+      "transport": "json"
+    },
+    {
+      "operationId": "downloadSessionSnapshot",
+      "method": "GET",
+      "path": "/sessions/{sessionId}/download",
+      "transport": "download"
+    },
+    {
+      "operationId": "downloadSoftwareRelease",
+      "method": "POST",
+      "path": "/system/software/actions/update",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "downloadWorldLog",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/logs/download",
+      "transport": "download"
+    },
+    {
+      "operationId": "executeRawRoomCommand",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/raw-commands",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "executeRoomCommand",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/commands",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "exportAutomation",
+      "method": "GET",
+      "path": "/rooms/{roomId}/automation/export",
+      "transport": "json"
+    },
+    {
+      "operationId": "forgetAgent",
+      "method": "DELETE",
+      "path": "/agents/{agentId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "generateRoomMap",
+      "method": "POST",
+      "path": "/rooms/{roomId}/maps/actions/generate",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAICall",
+      "method": "GET",
+      "path": "/system/ai/calls/{callId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAIStatus",
+      "method": "GET",
+      "path": "/system/ai",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAgent",
+      "method": "GET",
+      "path": "/agents/{agentId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAgentCommand",
+      "method": "GET",
+      "path": "/agents/commands/{commandId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAgentRuntimeInventory",
+      "method": "GET",
+      "path": "/agents/{agentId}/inventory",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAgentRuntimeTarget",
+      "method": "GET",
+      "path": "/runtime-targets/agents/{agentId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAgentSecurity",
+      "method": "GET",
+      "path": "/agents/security",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAgentSoftware",
+      "method": "GET",
+      "path": "/agents/{agentId}/software",
+      "transport": "json"
+    },
+    {
+      "operationId": "getArtworkPackImage",
+      "method": "GET",
+      "path": "/entity-catalog/artwork-pack/artwork/{prefab}",
+      "transport": "download"
+    },
+    {
+      "operationId": "getArtworkPackIndex",
+      "method": "GET",
+      "path": "/entity-catalog/artwork-pack/index",
+      "transport": "json"
+    },
+    {
+      "operationId": "getArtworkPackStatus",
+      "method": "GET",
+      "path": "/entity-catalog/artwork-pack",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAuthSession",
+      "method": "GET",
+      "path": "/auth/session",
+      "transport": "identity"
+    },
+    {
+      "operationId": "getAutomationRun",
+      "method": "GET",
+      "path": "/rooms/{roomId}/automation/runs/{runId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAutomationStats",
+      "method": "GET",
+      "path": "/rooms/{roomId}/automation/stats",
+      "transport": "json"
+    },
+    {
+      "operationId": "getAutomationTask",
+      "method": "GET",
+      "path": "/rooms/{roomId}/automation/tasks/{taskId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getBackup",
+      "method": "GET",
+      "path": "/backups/{backupId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getClusterTokenStatus",
+      "method": "GET",
+      "path": "/rooms/{roomId}/cluster-token",
+      "transport": "json"
+    },
+    {
+      "operationId": "getCommand",
+      "method": "GET",
+      "path": "/commands/{commandId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getCommandRun",
+      "method": "GET",
+      "path": "/rooms/{roomId}/command-runs/{runId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getDistributedBackupSet",
+      "method": "GET",
+      "path": "/backup-sets/{backupSetId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getEntityDirectory",
+      "method": "GET",
+      "path": "/entity-catalog/directory",
+      "transport": "json"
+    },
+    {
+      "operationId": "getExperimentalKubernetesRuntimeProvider",
+      "method": "GET",
+      "path": "/runtime-providers/kubernetes",
+      "transport": "json"
+    },
+    {
+      "operationId": "getFleetRuntimeOverview",
+      "method": "GET",
+      "path": "/runtime-overview",
+      "transport": "json"
+    },
+    {
+      "operationId": "getGameNotificationPolicy",
+      "method": "GET",
+      "path": "/rooms/{roomId}/game-notification-policy",
+      "transport": "json"
+    },
+    {
+      "operationId": "getGameRelease",
+      "method": "GET",
+      "path": "/game/releases/{releaseId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getGameUpdateRun",
+      "method": "GET",
+      "path": "/game/update-runs/{jobId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getGameVersion",
+      "method": "GET",
+      "path": "/game/version",
+      "transport": "json"
+    },
+    {
+      "operationId": "getInstalledGameVersions",
+      "method": "GET",
+      "path": "/game/installed-versions",
+      "transport": "json"
+    },
+    {
+      "operationId": "getJob",
+      "method": "GET",
+      "path": "/jobs/{jobId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getLatestWorldRuntimeDiagnostic",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/runtime/diagnostics/latest",
+      "transport": "json"
+    },
+    {
+      "operationId": "getMapFeatures",
+      "method": "GET",
+      "path": "/maps/{mapId}/features",
+      "transport": "json"
+    },
+    {
+      "operationId": "getMapLayerImage",
+      "method": "GET",
+      "path": "/maps/{mapId}/images/{layer}",
+      "transport": "download"
+    },
+    {
+      "operationId": "getMapManifest",
+      "method": "GET",
+      "path": "/maps/{mapId}/manifest",
+      "transport": "json"
+    },
+    {
+      "operationId": "getModConfiguration",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/mods/{modId}/configuration",
+      "transport": "json"
+    },
+    {
+      "operationId": "getModConfigurationFile",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/mods/configuration-file",
+      "transport": "json"
+    },
+    {
+      "operationId": "getModDetails",
+      "method": "GET",
+      "path": "/mods/{modId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getModMetadata",
+      "method": "GET",
+      "path": "/mods/metadata",
+      "transport": "json"
+    },
+    {
+      "operationId": "getModPublication",
+      "method": "GET",
+      "path": "/mod-publications/{publicationId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getNodeResources",
+      "method": "GET",
+      "path": "/system/resources",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoom",
+      "method": "GET",
+      "path": "/rooms/{roomId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomAccessLists",
+      "method": "GET",
+      "path": "/rooms/{roomId}/access",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomBackupPolicy",
+      "method": "GET",
+      "path": "/rooms/{roomId}/backup-policy",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomConfiguration",
+      "method": "GET",
+      "path": "/rooms/{roomId}/configuration",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomLogs",
+      "method": "GET",
+      "path": "/rooms/{roomId}/logs",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomModProfile",
+      "method": "GET",
+      "path": "/rooms/{roomId}/mod-profile",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomModReplicas",
+      "method": "GET",
+      "path": "/rooms/{roomId}/mod-replicas",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomModUpdate",
+      "method": "GET",
+      "path": "/rooms/{roomId}/mod-update",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomPlayer",
+      "method": "GET",
+      "path": "/rooms/{roomId}/players/{playerId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomRuntime",
+      "method": "GET",
+      "path": "/rooms/{roomId}/runtime",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomRuntimeModes",
+      "method": "GET",
+      "path": "/rooms/{roomId}/runtime-modes",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomRuntimeOverview",
+      "method": "GET",
+      "path": "/rooms/{roomId}/runtime/overview",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRoomTopology",
+      "method": "GET",
+      "path": "/rooms/{roomId}/topology",
+      "transport": "json"
+    },
+    {
+      "operationId": "getRuntimeInfrastructure",
+      "method": "GET",
+      "path": "/runtime-infrastructure",
+      "transport": "json"
+    },
+    {
+      "operationId": "getSaveImport",
+      "method": "GET",
+      "path": "/save-imports/{importId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "getSetupChecks",
+      "method": "GET",
+      "path": "/system/setup-checks",
+      "transport": "json"
+    },
+    {
+      "operationId": "getSoftwareStatus",
+      "method": "GET",
+      "path": "/system/software",
+      "transport": "json"
+    },
+    {
+      "operationId": "getSystemCapabilities",
+      "method": "GET",
+      "path": "/system/capabilities",
+      "transport": "json"
+    },
+    {
+      "operationId": "getSystemSettings",
+      "method": "GET",
+      "path": "/system/settings",
+      "transport": "json"
+    },
+    {
+      "operationId": "getSystemStatus",
+      "method": "GET",
+      "path": "/system/status",
+      "transport": "json"
+    },
+    {
+      "operationId": "getWorldConfiguration",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/configuration",
+      "transport": "json"
+    },
+    {
+      "operationId": "getWorldEntityArtwork",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/entity-catalog/artwork/{prefab}",
+      "transport": "download"
+    },
+    {
+      "operationId": "getWorldLog",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/logs",
+      "transport": "json"
+    },
+    {
+      "operationId": "getWorldRuntimeEvents",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/runtime/events",
+      "transport": "json"
+    },
+    {
+      "operationId": "getWorldStateHistory",
+      "method": "GET",
+      "path": "/rooms/{roomId}/world-states/history",
+      "transport": "json"
+    },
+    {
+      "operationId": "importArtworkPack",
+      "method": "POST",
+      "path": "/entity-catalog/artwork-pack/upload",
+      "contentType": "multipart/form-data",
+      "transport": "multipart"
+    },
+    {
+      "operationId": "importAutomation",
+      "method": "POST",
+      "path": "/rooms/{roomId}/automation/imports",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "inspectLuaJITInstallation",
+      "method": "GET",
+      "path": "/runtime-targets/luajit/status",
+      "transport": "json"
+    },
+    {
+      "operationId": "installArtworkPack",
+      "method": "POST",
+      "path": "/entity-catalog/artwork-pack/install",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "installGameOnRuntime",
+      "method": "POST",
+      "path": "/runtime-targets/game-installations/actions/install",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "installLuaJITPackage",
+      "method": "POST",
+      "path": "/runtime-targets/luajit/actions/install",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "installMod",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mods/actions/install",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "installRoomRuntime",
+      "method": "POST",
+      "path": "/rooms/{roomId}/runtime/actions/install",
+      "transport": "json"
+    },
+    {
+      "operationId": "installWorldRuntime",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/runtime/actions/install",
+      "transport": "json"
+    },
+    {
+      "operationId": "kickRoomPlayer",
+      "method": "POST",
+      "path": "/rooms/{roomId}/players/{playerId}/actions/kick",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "killRoomPlayer",
+      "method": "POST",
+      "path": "/rooms/{roomId}/players/{playerId}/actions/kill",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAICalls",
+      "method": "GET",
+      "path": "/system/ai/calls",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAITokens",
+      "method": "GET",
+      "path": "/system/ai/tokens",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAgentActions",
+      "method": "GET",
+      "path": "/agents/actions",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAgentCommands",
+      "method": "GET",
+      "path": "/agents/commands",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAgentCommandsForAgent",
+      "method": "GET",
+      "path": "/agents/{agentId}/commands",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAgentReleases",
+      "method": "GET",
+      "path": "/agent-releases",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAgents",
+      "method": "GET",
+      "path": "/agents",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAutomationActions",
+      "method": "GET",
+      "path": "/rooms/{roomId}/automation/actions",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAutomationGroups",
+      "method": "GET",
+      "path": "/rooms/{roomId}/automation/groups",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAutomationRuns",
+      "method": "GET",
+      "path": "/rooms/{roomId}/automation/runs",
+      "transport": "json"
+    },
+    {
+      "operationId": "listAutomationTasks",
+      "method": "GET",
+      "path": "/rooms/{roomId}/automation/tasks",
+      "transport": "json"
+    },
+    {
+      "operationId": "listCommandRuns",
+      "method": "GET",
+      "path": "/rooms/{roomId}/command-runs",
+      "transport": "json"
+    },
+    {
+      "operationId": "listCommands",
+      "method": "GET",
+      "path": "/commands",
+      "transport": "json"
+    },
+    {
+      "operationId": "listContainers",
+      "method": "GET",
+      "path": "/containers",
+      "transport": "json"
+    },
+    {
+      "operationId": "listDistributedBackupOperations",
+      "method": "GET",
+      "path": "/rooms/{roomId}/backup-operations",
+      "transport": "json"
+    },
+    {
+      "operationId": "listDistributedBackupSets",
+      "method": "GET",
+      "path": "/rooms/{roomId}/backup-sets",
+      "transport": "json"
+    },
+    {
+      "operationId": "listGameInstallations",
+      "method": "GET",
+      "path": "/runtime-targets/game-installations",
+      "transport": "json"
+    },
+    {
+      "operationId": "listGameNotifications",
+      "method": "GET",
+      "path": "/game-notifications",
+      "transport": "json"
+    },
+    {
+      "operationId": "listGameReleases",
+      "method": "GET",
+      "path": "/game/releases",
+      "transport": "json"
+    },
+    {
+      "operationId": "listJobs",
+      "method": "GET",
+      "path": "/jobs",
+      "transport": "json"
+    },
+    {
+      "operationId": "listLuaJITPackagesAndInstallations",
+      "method": "GET",
+      "path": "/runtime-targets/luajit",
+      "transport": "json"
+    },
+    {
+      "operationId": "listNodeModLibrary",
+      "method": "GET",
+      "path": "/mods/library",
+      "transport": "json"
+    },
+    {
+      "operationId": "listNotificationChannels",
+      "method": "GET",
+      "path": "/system/notifications/channels",
+      "transport": "json"
+    },
+    {
+      "operationId": "listNotificationDeliveries",
+      "method": "GET",
+      "path": "/system/notifications/deliveries",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomBackupSchedules",
+      "method": "GET",
+      "path": "/rooms/{roomId}/backup-schedules",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomBackups",
+      "method": "GET",
+      "path": "/rooms/{roomId}/backups",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomChatLogs",
+      "method": "GET",
+      "path": "/rooms/{roomId}/chat-logs",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomCommands",
+      "method": "GET",
+      "path": "/rooms/{roomId}/commands",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomMaps",
+      "method": "GET",
+      "path": "/rooms/{roomId}/maps",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomModPublications",
+      "method": "GET",
+      "path": "/rooms/{roomId}/mod-publications",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomMods",
+      "method": "GET",
+      "path": "/rooms/{roomId}/mods",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomPlayers",
+      "method": "GET",
+      "path": "/rooms/{roomId}/players",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomProvisionOperations",
+      "method": "GET",
+      "path": "/rooms/{roomId}/provision-operations",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomRecoveries",
+      "method": "GET",
+      "path": "/rooms/recovery",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomRuntimeEvents",
+      "method": "GET",
+      "path": "/rooms/{roomId}/runtime-events",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRoomWorlds",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRooms",
+      "method": "GET",
+      "path": "/rooms",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRuntimeInstallationMods",
+      "method": "GET",
+      "path": "/runtime-targets/{targetId}/installations/{installationId}/mods",
+      "transport": "json"
+    },
+    {
+      "operationId": "listRuntimeTargets",
+      "method": "GET",
+      "path": "/runtime-targets",
+      "transport": "json"
+    },
+    {
+      "operationId": "listSaveImports",
+      "method": "GET",
+      "path": "/save-imports",
+      "transport": "json"
+    },
+    {
+      "operationId": "listStructuredLogRules",
+      "method": "GET",
+      "path": "/rooms/{roomId}/log-rules",
+      "transport": "json"
+    },
+    {
+      "operationId": "listStructuredLogs",
+      "method": "GET",
+      "path": "/rooms/{roomId}/structured-logs",
+      "transport": "json"
+    },
+    {
+      "operationId": "listWorldRecoveries",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/recovery",
+      "transport": "json"
+    },
+    {
+      "operationId": "listWorldRuntimeBackups",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/runtime/backups",
+      "transport": "json"
+    },
+    {
+      "operationId": "listWorldSessions",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/sessions",
+      "transport": "json"
+    },
+    {
+      "operationId": "listWorldStates",
+      "method": "GET",
+      "path": "/rooms/{roomId}/world-states",
+      "transport": "json"
+    },
+    {
+      "operationId": "login",
+      "method": "POST",
+      "path": "/auth/login",
+      "contentType": "application/json",
+      "transport": "identity"
+    },
+    {
+      "operationId": "logout",
+      "method": "POST",
+      "path": "/auth/logout",
+      "contentType": "application/json",
+      "transport": "identity"
+    },
+    {
+      "operationId": "manageNodeSteamLogin",
+      "method": "POST",
+      "path": "/runtime-targets/game-installations/steam-login",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "migrateLegacyStructuredLogRules",
+      "method": "POST",
+      "path": "/rooms/{roomId}/log-rules/actions/migrate-legacy",
+      "transport": "json"
+    },
+    {
+      "operationId": "observeExperimentalKubernetesShard",
+      "method": "POST",
+      "path": "/runtime-providers/kubernetes/{providerId}/shards/observe",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "observeNodeSteamLogin",
+      "method": "GET",
+      "path": "/runtime-targets/game-installations/steam-login",
+      "transport": "json"
+    },
+    {
+      "operationId": "preflightExperimentalKubernetesShard",
+      "method": "POST",
+      "path": "/runtime-providers/kubernetes/{providerId}/shards/preflight",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewAutomationImport",
+      "method": "POST",
+      "path": "/rooms/{roomId}/automation/imports/preview",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewClusterToken",
+      "method": "POST",
+      "path": "/rooms/{roomId}/cluster-token/preview",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewGameRelease",
+      "method": "POST",
+      "path": "/game/releases/preview",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewLegacyStructuredLogRuleMigration",
+      "method": "GET",
+      "path": "/rooms/{roomId}/log-rules/migration-preview",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewModConfiguration",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/mods/{modId}/configuration/preview",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewRoomAccessLists",
+      "method": "POST",
+      "path": "/rooms/{roomId}/access/preview",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewRoomConfiguration",
+      "method": "POST",
+      "path": "/rooms/{roomId}/configuration/preview",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewRoomMaintenance",
+      "method": "GET",
+      "path": "/rooms/{roomId}/maintenance-preview",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewRoomModPublication",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mod-publications/preview",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewRoomTopology",
+      "method": "POST",
+      "path": "/rooms/{roomId}/topology/preview",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewSystemSettings",
+      "method": "POST",
+      "path": "/system/settings/preview",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "previewWorldConfiguration",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/configuration/preview",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "probeExistingGameInstallation",
+      "method": "POST",
+      "path": "/runtime-targets/game-installations/probe",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "provisionRoomTopology",
+      "method": "POST",
+      "path": "/rooms/{roomId}/topology/actions/provision",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "pruneRoomBackups",
+      "method": "POST",
+      "path": "/rooms/{roomId}/backups/actions/prune",
+      "transport": "json"
+    },
+    {
+      "operationId": "publishGameRelease",
+      "method": "POST",
+      "path": "/game/releases",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "publishRoomMods",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mod-publications",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "purgeRoomRecovery",
+      "method": "DELETE",
+      "path": "/rooms/recovery/{recoveryName}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "purgeWorldRecovery",
+      "method": "DELETE",
+      "path": "/rooms/{roomId}/worlds/recovery/{recoveryName}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "readWorldEntitySnapshot",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/entity-catalog/snapshot",
+      "transport": "json"
+    },
+    {
+      "operationId": "recoverDistributedBackupOperation",
+      "method": "POST",
+      "path": "/backup-operations/{backupOperationId}/actions/recover",
+      "transport": "json"
+    },
+    {
+      "operationId": "recoverRoomProvisionOperation",
+      "method": "POST",
+      "path": "/provision-operations/{provisionOperationId}/actions/recover",
+      "transport": "json"
+    },
+    {
+      "operationId": "refreshAgentRuntimeInventory",
+      "method": "POST",
+      "path": "/agents/{agentId}/inventory/actions/refresh",
+      "transport": "json"
+    },
+    {
+      "operationId": "refreshRoomPlayers",
+      "method": "POST",
+      "path": "/rooms/{roomId}/players/actions/refresh",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "refreshRuntimeObservations",
+      "method": "POST",
+      "path": "/runtime-observations/actions/refresh",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "refreshStructuredLogs",
+      "method": "POST",
+      "path": "/rooms/{roomId}/structured-logs/actions/refresh",
+      "transport": "json"
+    },
+    {
+      "operationId": "refreshWorldState",
+      "method": "POST",
+      "path": "/rooms/{roomId}/world-states/{worldId}/actions/refresh",
+      "transport": "json"
+    },
+    {
+      "operationId": "refreshWorldStates",
+      "method": "POST",
+      "path": "/rooms/{roomId}/world-states/actions/refresh",
+      "transport": "json"
+    },
+    {
+      "operationId": "reloadWorldRuntime",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/runtime/actions/reload",
+      "transport": "json"
+    },
+    {
+      "operationId": "renameBackup",
+      "method": "PATCH",
+      "path": "/backups/{backupId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "renameRuntimeTarget",
+      "method": "PATCH",
+      "path": "/runtime-targets/{targetId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "repairMod",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mods/{modId}/actions/repair",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "repairRoomChatHistory",
+      "method": "POST",
+      "path": "/rooms/{roomId}/chat-logs/actions/repair",
+      "transport": "json"
+    },
+    {
+      "operationId": "resetRoomPlayerCharacter",
+      "method": "POST",
+      "path": "/rooms/{roomId}/players/{playerId}/actions/change-character",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "restoreBackup",
+      "method": "POST",
+      "path": "/backups/{backupId}/actions/restore",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "restoreDistributedBackupSet",
+      "method": "POST",
+      "path": "/backup-sets/{backupSetId}/actions/restore",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "restoreRoomRecovery",
+      "method": "POST",
+      "path": "/rooms/recovery/{recoveryName}/actions/restore",
+      "transport": "json"
+    },
+    {
+      "operationId": "restoreWorldRecovery",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/recovery/{recoveryName}/actions/restore",
+      "transport": "json"
+    },
+    {
+      "operationId": "resurrectRoomPlayer",
+      "method": "POST",
+      "path": "/rooms/{roomId}/players/{playerId}/actions/resurrect",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "retryFailedModPublication",
+      "method": "POST",
+      "path": "/mod-publications/{publicationId}/actions/retry-failed",
+      "transport": "json"
+    },
+    {
+      "operationId": "retryGameRelease",
+      "method": "POST",
+      "path": "/game/releases/{releaseId}/actions/retry",
+      "transport": "json"
+    },
+    {
+      "operationId": "retryNotificationDelivery",
+      "method": "POST",
+      "path": "/system/notifications/deliveries/{deliveryId}/actions/retry",
+      "transport": "json"
+    },
+    {
+      "operationId": "revealClusterToken",
+      "method": "POST",
+      "path": "/rooms/{roomId}/cluster-token/reveal",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "revokeAIToken",
+      "method": "DELETE",
+      "path": "/system/ai/tokens/{tokenId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "rollbackWorldRuntime",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/runtime/actions/rollback",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "rotateAgentKey",
+      "method": "POST",
+      "path": "/agents/security/actions/rotate",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "runAgentCommand",
+      "method": "POST",
+      "path": "/agents/{agentId}/commands",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "runAutomationTask",
+      "method": "POST",
+      "path": "/rooms/{roomId}/automation/tasks/{taskId}/actions/run",
+      "transport": "json"
+    },
+    {
+      "operationId": "runBatchRoomAction",
+      "method": "POST",
+      "path": "/rooms/actions/{action}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "runContainerAction",
+      "method": "POST",
+      "path": "/containers/{containerId}/actions/{action}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "runRoomAction",
+      "method": "POST",
+      "path": "/rooms/{roomId}/actions/{action}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "saveInitialSetupProgress",
+      "method": "PUT",
+      "path": "/auth/onboarding",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "searchArtworkPackEntities",
+      "method": "GET",
+      "path": "/entity-catalog/artwork-pack/entities",
+      "transport": "json"
+    },
+    {
+      "operationId": "searchEntityCatalog",
+      "method": "GET",
+      "path": "/entity-catalog/entities",
+      "transport": "json"
+    },
+    {
+      "operationId": "searchMods",
+      "method": "GET",
+      "path": "/mods/search",
+      "transport": "json"
+    },
+    {
+      "operationId": "searchWorldEntityCatalog",
+      "method": "POST",
+      "path": "/rooms/{roomId}/worlds/{worldId}/entity-catalog/search",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "sendCustomNotification",
+      "method": "POST",
+      "path": "/system/notifications/actions/send",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "sendGameNotification",
+      "method": "POST",
+      "path": "/game-notifications",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "setModEnabled",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mods/{modId}/actions/enable",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "setRoomModConfigurationMode",
+      "method": "PUT",
+      "path": "/rooms/{roomId}/mods/{modId}/configuration-mode",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "setRoomPlayerCreativeMode",
+      "method": "POST",
+      "path": "/rooms/{roomId}/players/{playerId}/actions/creative-mode",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "setRoomPlayerGodMode",
+      "method": "POST",
+      "path": "/rooms/{roomId}/players/{playerId}/actions/god-mode",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "setRuntimeTargetDisplayAddress",
+      "method": "PUT",
+      "path": "/runtime-targets/{targetId}/display-address",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "setupAdmin",
+      "method": "POST",
+      "path": "/auth/setup",
+      "contentType": "application/json",
+      "transport": "identity"
+    },
+    {
+      "operationId": "streamJobEvents",
+      "method": "GET",
+      "path": "/jobs/events",
+      "transport": "stream"
+    },
+    {
+      "operationId": "streamRuntimeObservations",
+      "method": "GET",
+      "path": "/runtime-observations/stream",
+      "transport": "stream"
+    },
+    {
+      "operationId": "streamWorldLog",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/logs/events",
+      "transport": "stream"
+    },
+    {
+      "operationId": "streamWorldRuntimeEvents",
+      "method": "GET",
+      "path": "/rooms/{roomId}/worlds/{worldId}/runtime/events/stream",
+      "transport": "stream"
+    },
+    {
+      "operationId": "testAIProvider",
+      "method": "POST",
+      "path": "/system/ai/actions/test",
+      "transport": "json"
+    },
+    {
+      "operationId": "testNotificationChannel",
+      "method": "POST",
+      "path": "/system/notifications/channels/{channelId}/actions/test",
+      "transport": "json"
+    },
+    {
+      "operationId": "testStructuredLogRule",
+      "method": "POST",
+      "path": "/rooms/{roomId}/log-rules/actions/test",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "testSystemSMTPConnection",
+      "method": "POST",
+      "path": "/system/settings/actions/test-email",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "unbanRoomPlayer",
+      "method": "POST",
+      "path": "/rooms/{roomId}/players/{playerId}/actions/unban",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "unconfigureAgentRuntimeTarget",
+      "method": "DELETE",
+      "path": "/runtime-targets/agents/{agentId}",
+      "transport": "json"
+    },
+    {
+      "operationId": "uninstallArtworkPack",
+      "method": "DELETE",
+      "path": "/entity-catalog/artwork-pack",
+      "transport": "json"
+    },
+    {
+      "operationId": "uninstallMod",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mods/{modId}/actions/uninstall",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "uninstallWorldRuntime",
+      "method": "DELETE",
+      "path": "/rooms/{roomId}/worlds/{worldId}/runtime",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateAgentSoftware",
+      "method": "POST",
+      "path": "/agents/{agentId}/software/actions/update",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateAutomationGroup",
+      "method": "PUT",
+      "path": "/rooms/{roomId}/automation/groups/{groupId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateAutomationTask",
+      "method": "PUT",
+      "path": "/rooms/{roomId}/automation/tasks/{taskId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateCommand",
+      "method": "PUT",
+      "path": "/commands/{commandId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateGameNotificationPolicy",
+      "method": "PUT",
+      "path": "/rooms/{roomId}/game-notification-policy",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateGameServer",
+      "method": "POST",
+      "path": "/game/actions/update",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateMod",
+      "method": "POST",
+      "path": "/rooms/{roomId}/mods/{modId}/actions/update",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateNodeMod",
+      "method": "POST",
+      "path": "/mods/library/{modId}/actions/update",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateNotificationChannel",
+      "method": "PUT",
+      "path": "/system/notifications/channels/{channelId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateOutdatedRuntimeInstallationMods",
+      "method": "POST",
+      "path": "/runtime-targets/{targetId}/installations/{installationId}/mods/actions/update-outdated",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateRoomBackupPolicy",
+      "method": "PUT",
+      "path": "/rooms/{roomId}/backup-policy",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateRoomModUpdatePolicy",
+      "method": "PUT",
+      "path": "/rooms/{roomId}/mod-update/policy",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateRoomTopology",
+      "method": "PUT",
+      "path": "/rooms/{roomId}/topology",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateRuntimeCPUAllocation",
+      "method": "PUT",
+      "path": "/runtime-infrastructure/cpu-allocations",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateRuntimeInstallationMod",
+      "method": "POST",
+      "path": "/runtime-targets/{targetId}/installations/{installationId}/mods/{modId}/actions/update",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateRuntimeNetworkProfile",
+      "method": "PUT",
+      "path": "/runtime-infrastructure/network-profiles/{profileId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "updateStructuredLogRule",
+      "method": "PUT",
+      "path": "/rooms/{roomId}/log-rules/{ruleId}",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "upgradeAgent",
+      "method": "POST",
+      "path": "/agents/{agentId}/actions/upgrade",
+      "contentType": "application/json",
+      "transport": "json"
+    },
+    {
+      "operationId": "uploadAIAttachment",
+      "method": "POST",
+      "path": "/system/ai/attachments",
+      "contentType": "multipart/form-data",
+      "transport": "assistant"
+    },
+    {
+      "operationId": "uploadAgentRelease",
+      "method": "POST",
+      "path": "/agent-releases",
+      "contentType": "multipart/form-data",
+      "transport": "multipart"
+    },
+    {
+      "operationId": "uploadLuaJITPackage",
+      "method": "POST",
+      "path": "/runtime-targets/luajit/packages",
+      "contentType": "multipart/form-data",
+      "transport": "multipart"
+    },
+    {
+      "operationId": "uploadRoomBackup",
+      "method": "POST",
+      "path": "/rooms/{roomId}/backups/upload",
+      "contentType": "multipart/form-data",
+      "transport": "multipart"
+    },
+    {
+      "operationId": "uploadSaveImport",
+      "method": "POST",
+      "path": "/save-imports/upload",
+      "contentType": "multipart/form-data",
+      "transport": "multipart"
+    }
+  ]
+}

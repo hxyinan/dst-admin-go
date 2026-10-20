@@ -70,6 +70,12 @@ jobs:
           npm ci
           npm run lint -- --no-fix
           npm test
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.9
+          cache: true
+      - name: Verify shared OpenAPI client contract
+        run: go run ./cmd/openapi-manifest -check -out .codex-build/frontend/src/api/openapiOperations.json
       - id: source
         name: Pin source revisions
         shell: bash

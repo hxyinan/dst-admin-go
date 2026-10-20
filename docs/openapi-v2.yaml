@@ -4,14 +4,16 @@ info:
   version: 2.0.0-alpha.1
   description: >-
     Contract for the authenticated DST Admin management API. JSON fields use
-    camelCase. Authenticated state-changing requests require X-CSRF-Token and
-    Idempotency-Key headers. Fleet views select a machine with explicit targetId
+    camelCase. Use an administrator session cookie or an administrator API Bearer
+    token created in AI settings. State-changing requests require Idempotency-Key;
+    cookie authentication also requires X-CSRF-Token. Fleet views select a machine with explicit targetId
     query or targetIds body fields; room and world operations resolve their runtime
     target from persisted Placement. X-DST-Runtime-Target remains a legacy fail-closed
     guard for older clients and does not route requests to an Agent.
 servers:
   - url: /api/v2
 tags:
+  - name: AI
   - name: Auth
   - name: System
   - name: Rooms
@@ -36,10 +38,192 @@ tags:
   - name: Save Imports
   - name: Entity Catalog
 paths:
+  /system/ai/private-inputs:
+    post:
+      tags: [AI]
+      operationId: createPrivateAIInput
+      x-dst-transport: assistant
+      summary: Store a private input for a management operation without disclosing its value to the model
+      description: Encrypted caller-owned values expire after 24 hours. Supply the returned id as a message privateInputs reference; use the reference string in an API body. This input is not an approval step.
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, value]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                value: { type: string, minLength: 1, maxLength: 8192, writeOnly: true }
+      responses:
+        "201":
+          description: Private input reference, name and creation time; never plaintext
+          content: { application/json: { schema: { type: object, properties: { data: { type: object, required: [id, name, createdAt], properties: { id: { type: string, format: uuid }, name: { type: string }, createdAt: { type: string, format: date-time } } } } } } }
+  /system/ai/private-results/{resourceId}:
+    get:
+      tags: [AI]
+      operationId: downloadPrivateAIResult
+      x-dst-transport: assistant
+      summary: Download a caller-owned private API result
+      description: Values such as newly created API credentials are encrypted in temporary storage and excluded from model input and chat history. The authenticated administrator can download the original result for 24 hours.
+      parameters:
+        - { name: resourceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Original private JSON result, content: { application/json: { schema: { type: object } } } }
+  /system/openapi:
+    get:
+      tags: [System]
+      operationId: downloadManagementContract
+      x-dst-transport: assistant
+      summary: Download the exact OpenAPI contract used by management tools
+      responses:
+        "200":
+          description: OpenAPI 3.1 YAML
+          content: { application/yaml: { schema: { type: string } } }
+  /system/ai/attachments:
+    post:
+      tags: [AI]
+      operationId: uploadAIAttachment
+      x-dst-transport: assistant
+      summary: Stream a file into private temporary assistant storage
+      description: Maximum 2 GiB per file and 4 GiB total. References expire after 24 hours and belong to the authenticated caller. File contents are never sent to the model. Pass the returned id as attachmentId to a management upload operation.
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties: { file: { type: string, format: binary } }
+      responses:
+        "201":
+          description: Uploaded file metadata, not file contents
+          content: { application/json: { schema: { $ref: "#/components/schemas/AIAttachmentEnvelope" } } }
+  /system/ai/attachments/{attachmentId}:
+    delete:
+      tags: [AI]
+      operationId: deleteAIAttachment
+      x-dst-transport: assistant
+      summary: Delete an assistant attachment owned by the caller
+      parameters:
+        - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: "#/components/parameters/CSRFToken" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { description: Temporary attachment deleted, content: { application/json: { schema: { $ref: "#/components/schemas/AIEnvelope" } } } }
+  /system/ai/resources/{resourceId}:
+    get:
+      tags: [AI]
+      operationId: downloadAIResource
+      x-dst-transport: assistant
+      summary: Download or stream a management result prepared by the assistant
+      description: Rechecks caller ownership, expiry and the original management endpoint authentication. A prepared link does not mean its contents were downloaded or inspected.
+      parameters:
+        - { name: resourceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Original authenticated binary or streaming response, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+  /system/ai:
+    get:
+      tags: [AI]
+      operationId: getAIStatus
+      summary: Read Controller AI configuration and tool catalog without secrets
+      responses:
+        "200":
+          description: Read Controller AI configuration and tool catalog without secrets
+          content: { application/json: { schema: { $ref: "#/components/schemas/AIEnvelope" } } }
+    put:
+      tags: [AI]
+      operationId: configureAI
+      summary: Save AI configuration with revision checking
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AIConfigInput" } } } }
+      responses:
+        "200":
+          description: Save AI configuration with revision checking
+          content: { application/json: { schema: { $ref: "#/components/schemas/AIEnvelope" } } }
+  /system/ai/actions/test:
+    post:
+      tags: [AI]
+      operationId: testAIProvider
+      summary: Test the saved model connection; sends a minimal prompt
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      responses:
+        "200":
+          description: Test the saved model connection; sends a minimal prompt
+          content: { application/json: { schema: { $ref: "#/components/schemas/AIEnvelope" } } }
+  /system/ai/tokens:
+    get:
+      tags: [AI]
+      operationId: listAITokens
+      summary: List MCP credential metadata; no plaintext keys
+      responses:
+        "200":
+          description: List MCP credential metadata; no plaintext keys
+          content: { application/json: { schema: { $ref: "#/components/schemas/AIEnvelope" } } }
+    post:
+      tags: [AI]
+      operationId: createAIToken
+      summary: Create a scoped MCP credential; plaintext returned once
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AITokenInput" } } } }
+      responses:
+        "201":
+          description: Create a scoped MCP credential; plaintext returned once
+          content: { application/json: { schema: { $ref: "#/components/schemas/AIEnvelope" } } }
+  /system/ai/tokens/{tokenId}:
+    parameters:
+      - { name: tokenId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [AI]
+      operationId: revokeAIToken
+      summary: Revoke MCP credential and block further calls
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      responses:
+        "200":
+          description: Revoke MCP credential and block further calls
+          content: { application/json: { schema: { $ref: "#/components/schemas/AIEnvelope" } } }
+  /system/ai/calls:
+    get:
+      tags: [AI]
+      operationId: listAICalls
+      summary: Read the latest 100 tool calls
+      responses:
+        "200":
+          description: Read the latest 100 tool calls
+          content: { application/json: { schema: { $ref: "#/components/schemas/AIEnvelope" } } }
+  /system/ai/calls/{callId}:
+    parameters:
+      - { name: callId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [AI]
+      operationId: getAICall
+      summary: Read a full tool receipt on demand
+      responses:
+        "200":
+          description: Full Controller tool call and bounded result
+          content: { application/json: { schema: { $ref: "#/components/schemas/AIEnvelope" } } }
+  /system/ai/chat:
+    post:
+      tags: [AI]
+      operationId: chatWithAI
+      x-dst-transport: assistant
+      summary: Run a bounded model tool loop and stream progress and actual receipts
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AIChatInput" } } } }
+      responses:
+        "200":
+          description: SSE JSON events with types thinking, tool, tool_error, result, complete or error; HTTP 200 alone does not imply success
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "429": { description: At most two active AI requests are allowed }
   /auth/session:
     get:
       tags: [Auth]
       operationId: getAuthSession
+      x-dst-transport: identity
       security: []
       summary: Inspect setup and session state
       responses:
@@ -53,6 +237,7 @@ paths:
     post:
       tags: [Auth]
       operationId: setupAdmin
+      x-dst-transport: identity
       security: []
       summary: Create the single administrator on first run
       requestBody:
@@ -80,6 +265,7 @@ paths:
     post:
       tags: [Auth]
       operationId: login
+      x-dst-transport: identity
       security: []
       summary: Create an administrator session
       requestBody:
@@ -111,6 +297,7 @@ paths:
     post:
       tags: [Auth]
       operationId: logout
+      x-dst-transport: identity
       summary: Revoke the current session
       parameters:
         - $ref: "#/components/parameters/CSRFToken"
@@ -159,10 +346,12 @@ paths:
                 currentPassword:
                   type: string
                   maxLength: 72
+                  writeOnly: true
                 newPassword:
                   type: string
                   minLength: 6
                   maxLength: 72
+                  writeOnly: true
       responses:
         "200":
           description: Password changed; the client must log in again
@@ -565,7 +754,7 @@ paths:
         required: true
         schema:
           type: string
-          enum: [start, stop, restart]
+          enum: [start, stop, restart, save]
     post:
       tags: [Rooms, Jobs]
       operationId: runBatchRoomAction
@@ -829,6 +1018,45 @@ paths:
               schema: { $ref: "#/components/schemas/JobEnvelope" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+  /rooms/{roomId}/backup-schedules:
+    parameters: [{ $ref: "#/components/parameters/RoomID" }]
+    get:
+      tags: [Backups, Automation]
+      operationId: listRoomBackupSchedules
+      summary: Read automatic backup tasks, their group state, legacy policy and shared creation defaults
+      responses:
+        "200":
+          description: Backup schedules and defaults; enabled tasks in disabled groups are not effective
+          content: { application/json: { schema: { $ref: "#/components/schemas/BackupSchedulesEnvelope" } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /rooms/{roomId}/backup-schedules/actions/configure:
+    parameters: [{ $ref: "#/components/parameters/RoomID" }]
+    post:
+      tags: [Backups, Automation]
+      operationId: configureRoomBackupSchedule
+      summary: Enable, edit or pause automatic room backups without duplicate schedules
+      description: >-
+        Partial update of an existing backup plan, or creation using the same defaults as the UI.
+        Send enabled=true to enable, enabled=false to pause. Unspecified existing settings are preserved.
+        With no taskId, reuses the sole backup task; multiple candidates require an explicit taskId.
+        createNew=true explicitly creates an additional plan. An active legacy interval policy is reused
+        when it is the only source; use updateRoomBackupPolicy for its interval, and pause it before creating
+        a Cron replacement. Enabling a task in a paused group moves it to an enabled backup group without
+        enabling unrelated tasks. Returns persisted effectiveEnabled and nextRunLocal for verification.
+        Does not immediately run a backup or change real saves. Use runAutomationTask or
+        createDistributedBackupSet for an immediate backup; a scheduled backup covers every world through
+        the existing consistency coordinator and applied Placement, including remote Agents.
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/BackupScheduleInput" } } }
+      responses:
+        "200":
+          description: Persisted schedule and effective group/task state; this does not mean a backup archive was created
+          content: { application/json: { schema: { $ref: "#/components/schemas/BackupScheduleEnvelope" } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /rooms/{roomId}/backup-sets:
     parameters:
       - $ref: "#/components/parameters/RoomID"
@@ -900,6 +1128,7 @@ paths:
       responses:
         "200":
           description: Backup set deleted; live game saves are unchanged
+          content: { application/json: { schema: { $ref: "#/components/schemas/DeletedEnvelope" } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
@@ -1167,7 +1396,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/PurgeRecoveryInput" }
       responses:
-        "200": { description: Recovery item removed }
+        "200": { description: Recovery item removed, content: { application/json: { schema: { $ref: "#/components/schemas/RecoveryPurgedEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /rooms/{roomId}/worlds:
@@ -1282,7 +1511,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/PurgeRecoveryInput" }
       responses:
-        "200": { description: Recovery item removed }
+        "200": { description: Recovery item removed, content: { application/json: { schema: { $ref: "#/components/schemas/RecoveryPurgedEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /rooms/{roomId}/runtime:
@@ -1488,11 +1717,11 @@ paths:
         required: true
         schema:
           type: string
-          enum: [start, stop, restart]
+          enum: [start, stop, restart, save, cleanup]
     post:
       tags: [Rooms, Jobs]
       operationId: runRoomAction
-      summary: Start, stop, or restart selected worlds through a persistent job
+      summary: Start, stop, restart, save or clean up stopped runtime processes through a persistent job
       parameters:
         - $ref: "#/components/parameters/CSRFToken"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -3476,7 +3705,7 @@ paths:
               properties:
                 mode: { type: string, enum: [shared, separate] }
       responses:
-        "200": { description: Editor mode saved }
+        "200": { description: Editor mode saved, content: { application/json: { schema: { $ref: "#/components/schemas/ModConfigurationModeEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /rooms/{roomId}/mods/{modId}/actions/add:
@@ -3983,7 +4212,7 @@ paths:
       operationId: deleteAutomationGroup
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
-        "200": { description: Group deleted }
+        "200": { description: Group deleted, content: { application/json: { schema: { $ref: "#/components/schemas/DeletedEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
   /rooms/{roomId}/automation/tasks:
@@ -4026,7 +4255,7 @@ paths:
       operationId: deleteAutomationTask
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
-        "200": { description: Task deleted }
+        "200": { description: Task deleted, content: { application/json: { schema: { $ref: "#/components/schemas/DeletedEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
   /rooms/{roomId}/automation/tasks/{taskId}/actions/run:
@@ -4174,7 +4403,7 @@ paths:
       summary: Delete a custom extraction rule
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
-        "200": { description: Custom extraction rule deleted }
+        "200": { description: Custom extraction rule deleted, content: { application/json: { schema: { $ref: "#/components/schemas/DeletedEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
   /rooms/{roomId}/log-rules/actions/test:
@@ -4261,7 +4490,7 @@ paths:
       parameters:
         - { name: targetId, in: query, schema: { type: string } }
       responses:
-        "200": { description: "Installation rows with exact targetId and installationId, online status, installed flag, gameVersion, serverPath, resolvedPath, savePath, SteamCMD availability, supported actions and per-node errors" }
+        "200": { description: "Installation rows with exact targetId and installationId, online status, installed flag, gameVersion, serverPath, resolvedPath, savePath, SteamCMD availability, supported actions and per-node errors", content: { application/json: { schema: { $ref: "#/components/schemas/GameInstallationsEnvelope" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /runtime-targets/game-installations/steam-login:
     get:
@@ -4272,7 +4501,7 @@ paths:
         - { name: targetId, in: query, required: true, schema: { type: string } }
         - { name: installationId, in: query, required: true, schema: { type: string } }
       responses:
-        "200": { description: "mode (anonymous/account/unavailable), username, passwordSet, state, sessionId, errorCode, updatedAt, optional expiresAt and recoveryRequired; never password or code. Unreadable credentials return recoveryRequired=true with CREDENTIALS_UNAVAILABLE and block downloads until an explicit reset." }
+        "200": { description: "mode (anonymous/account/unavailable), username, passwordSet, state, sessionId, errorCode, updatedAt, optional expiresAt and recoveryRequired; never password or code. Unreadable credentials return recoveryRequired=true with CREDENTIALS_UNAVAILABLE and block downloads until an explicit reset.", content: { application/json: { schema: { $ref: "#/components/schemas/SteamLoginStatusEnvelope" } } } }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
     post:
       tags: [Runtime]
@@ -4297,7 +4526,7 @@ paths:
                 sessionId: { type: string, maxLength: 128 }
                 code: { type: string, pattern: '^[A-Za-z0-9]{5}$', writeOnly: true }
       responses:
-        "200": { description: "Sanitized login status. Verification runs asynchronously; read only while a login is active." }
+        "200": { description: "Sanitized login status. Verification runs asynchronously; read only while a login is active.", content: { application/json: { schema: { $ref: "#/components/schemas/SteamLoginStatusEnvelope" } } } }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /runtime-targets/game-installations/probe:
     post:
@@ -4317,7 +4546,7 @@ paths:
                 installationId: { type: string }
                 path: { type: string, maxLength: 4096 }
       responses:
-        "200": { description: "Detected game version, canonical source directory and content fingerprint for explicit adoption" }
+        "200": { description: "Detected game version, canonical source directory and content fingerprint for explicit adoption", content: { application/json: { schema: { $ref: "#/components/schemas/GameInstallationReportEnvelope" } } } }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /runtime-targets/game-installations/actions/install:
     post:
@@ -4336,7 +4565,7 @@ paths:
                 targetId: { type: string }
                 installationId: { type: string }
       responses:
-        "202": { description: "Tracked installation Job; execution and downloads belong to the selected Runtime" }
+        "202": { description: "Tracked installation Job; execution and downloads belong to the selected Runtime", content: { application/json: { schema: { $ref: "#/components/schemas/JobEnvelope" } } } }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /runtime-targets/game-installations/actions/adopt:
     post:
@@ -4357,7 +4586,7 @@ paths:
                 path: { type: string, maxLength: 4096 }
                 fingerprint: { type: string, pattern: '^[a-f0-9]{64}$' }
       responses:
-        "202": { description: "Tracked adoption Job; nonempty destination and changed source are rejected" }
+        "202": { description: "Tracked adoption Job; nonempty destination and changed source are rejected", content: { application/json: { schema: { $ref: "#/components/schemas/JobEnvelope" } } } }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /runtime-targets/luajit:
     get:
@@ -4367,7 +4596,7 @@ paths:
       parameters:
         - { name: targetId, in: query, schema: { type: string } }
       responses:
-        "200": { description: "Envelope containing optional controller transfers and installations; local installation includes its own releases, remote releases are fetched through the selected installation status endpoint" }
+        "200": { description: "Envelope containing optional controller transfers and installations; local installation includes its own releases, remote releases are fetched through the selected installation status endpoint", content: { application/json: { schema: { $ref: "#/components/schemas/LuaJITCatalogEnvelope" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /runtime-targets/luajit/status:
     get:
@@ -4379,7 +4608,7 @@ paths:
         - { name: installationId, in: query, required: true, schema: { type: string } }
         - { name: refreshUpstream, in: query, schema: { type: boolean, default: false }, description: Explicitly refresh upstream release metadata on the selected Runtime; never downloads or installs a package. }
       responses:
-        "200": { description: Envelope containing the selected installation, its own available releases and current performance report }
+        "200": { description: Envelope containing the selected installation, its own available releases and current performance report, content: { application/json: { schema: { $ref: "#/components/schemas/LuaJITInstallationEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
   /runtime-targets/luajit/packages:
     post:
@@ -4397,7 +4626,7 @@ paths:
               properties:
                 file: { type: string, format: binary }
       responses:
-        "201": { description: "Package metadata: id, version, revision, os, arch, sha256, size, optional channel and sourceUrl" }
+        "201": { description: "Package metadata: id, version, revision, os, arch, sha256, size, optional channel and sourceUrl", content: { application/json: { schema: { $ref: "#/components/schemas/LuaJITReleaseEnvelope" } } } }
         "400": { description: Invalid upload or size limit exceeded }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /runtime-targets/luajit/actions/download:
@@ -4419,7 +4648,7 @@ paths:
                 url: { type: string, format: uri, pattern: '^https://' }
                 sha256: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
       responses:
-        "202": { description: LuaJIT download Job; poll the control-plane jobs endpoint }
+        "202": { description: LuaJIT download Job; poll the control-plane jobs endpoint, content: { application/json: { schema: { $ref: "#/components/schemas/JobEnvelope" } } } }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
   /runtime-targets/luajit/actions/install:
     post:
@@ -4440,7 +4669,7 @@ paths:
                 releaseId: { type: string, pattern: '^[a-f0-9]{64}$' }
                 source: { type: string, enum: [runtime, controller], default: runtime, description: 'Use node-owned packages by default; controller explicitly transfers an uploaded package' }
       responses:
-        "202": { description: LuaJIT installation Job; success requires a confirmed readiness report }
+        "202": { description: LuaJIT installation Job; success requires a confirmed readiness report, content: { application/json: { schema: { $ref: "#/components/schemas/JobEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
@@ -4527,7 +4756,7 @@ paths:
       description: Also suppresses automatic adoption for this Agent so the same discovered installation is not recreated immediately. A later manual PUT clears the suppression.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
-        "200": { description: Remote runtime configuration removed }
+        "200": { description: Remote runtime configuration removed, content: { application/json: { schema: { $ref: "#/components/schemas/DeletedEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
   /agents:
     get:
@@ -4576,7 +4805,7 @@ paths:
       summary: Delete an Agent binary that is not being downloaded
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
-        "200": { description: Agent release deleted }
+        "200": { description: Agent release deleted, content: { application/json: { schema: { $ref: "#/components/schemas/DeletedEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
   /agents/actions:
@@ -4750,7 +4979,7 @@ paths:
       summary: Remove an offline Agent snapshot
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
-        "200": { description: Offline Agent snapshot removed }
+        "200": { description: Offline Agent snapshot removed, content: { application/json: { schema: { $ref: "#/components/schemas/DeletedEnvelope" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
   /agents/{agentId}/commands:
@@ -4898,6 +5127,10 @@ paths:
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 components:
   securitySchemes:
+    apiBearer:
+      type: http
+      scheme: bearer
+      description: Administrator API token created in AI settings; also used at /mcp. Disabled, expired and revoked tokens fail on both transports.
     sessionCookie:
       type: apiKey
       in: cookie
@@ -4916,7 +5149,8 @@ components:
     CSRFToken:
       name: X-CSRF-Token
       in: header
-      required: true
+      required: false
+      description: Required for state-changing requests authenticated by session cookie. Not required for Authorization Bearer requests.
       schema:
         type: string
     IdempotencyKey:
@@ -5087,6 +5321,204 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
   schemas:
+    DeletedEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [deleted]
+          properties:
+            deleted: { type: boolean, const: true }
+            id: { type: string }
+    RecoveryPurgedEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [recoveryName]
+          properties:
+            recoveryName: { type: string }
+    ModConfigurationModeEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [mode]
+          properties:
+            mode: { type: string, enum: [shared, separate] }
+    SteamLoginStatus:
+      type: object
+      required: [mode, passwordSet, state, updatedAt]
+      properties:
+        mode: { type: string, enum: [anonymous, account, unavailable] }
+        username: { type: string }
+        passwordSet: { type: boolean }
+        recoveryRequired: { type: boolean }
+        state: { type: string, description: 'anonymous, configured, connecting, guard_email, guard_mobile, guard_approval, ready or failed; configured does not prove Steam login succeeded' }
+        sessionId: { type: string }
+        errorCode: { type: string }
+        updatedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+    SteamLoginStatusEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/SteamLoginStatus" }
+    GameInstallationReport:
+      type: object
+      required: [installed, serverPath, savePath, steamcmdAvailable, canInstall, canAdopt]
+      properties:
+        installed: { type: boolean }
+        serverPath: { type: string }
+        resolvedPath: { type: string }
+        savePath: { type: string }
+        gameVersion: { type: string }
+        steamcmdAvailable: { type: boolean }
+        canInstall: { type: boolean }
+        canAdopt: { type: boolean }
+        reason: { type: string }
+        fingerprint: { type: string }
+        steamLogin: { $ref: "#/components/schemas/SteamLoginStatus" }
+    GameInstallationReportEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/GameInstallationReport" }
+    GameInstallationsEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            allOf:
+              - { $ref: "#/components/schemas/GameInstallationReport" }
+              - type: object
+                required: [targetId, targetName, installationId, online, os, supported]
+                properties:
+                  targetId: { type: string }
+                  targetName: { type: string }
+                  installationId: { type: string }
+                  online: { type: boolean }
+                  os: { type: string }
+                  supported: { type: boolean }
+                  error: { type: string }
+    LuaJITRelease:
+      type: object
+      required: [id, version, os, arch, sha256, size]
+      properties:
+        id: { type: string }
+        version: { type: string }
+        revision: { type: string }
+        os: { type: string }
+        arch: { type: string }
+        sha256: { type: string }
+        size: { type: integer, minimum: 0 }
+        channel: { type: string }
+        sourceUrl: { type: string }
+    LuaJITReleaseEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/LuaJITRelease" }
+    LuaJITInstallation:
+      type: object
+      required: [releases, targetId, targetName, installationId, os, arch, online, canInstall]
+      properties:
+        releases: { type: [array, "null"], items: { $ref: "#/components/schemas/LuaJITRelease" }, description: Null when the node catalog has not been read }
+        targetId: { type: string }
+        targetName: { type: string }
+        installationId: { type: string }
+        os: { type: string }
+        arch: { type: string }
+        online: { type: boolean }
+        canInstall: { type: boolean }
+        reason: { type: string }
+        performance: { $ref: "#/components/schemas/RuntimePerformanceReport" }
+    LuaJITInstallationEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/LuaJITInstallation" }
+    LuaJITCatalogEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [transfers, installations]
+          properties:
+            transfers: { type: [array, "null"], items: { $ref: "#/components/schemas/LuaJITRelease" } }
+            installations: { type: array, items: { $ref: "#/components/schemas/LuaJITInstallation" } }
+    AIEnvelope:
+      type: object
+      required: [data, error, meta]
+      properties:
+        data: { description: AI configuration, credential metadata, tool invocation or collection as documented in docs/ai-assistant.md }
+        error: { type: "null" }
+        meta: { $ref: "#/components/schemas/Meta" }
+    AIConfigInput:
+      type: object
+      required: [revision, enabled, endpoint, model]
+      properties:
+        revision: { type: string, description: Revision from GET /system/ai; stale saves return 409 }
+        enabled: { type: boolean, default: false }
+        endpoint: { type: string, maxLength: 2048, description: Trusted administrator-selected HTTP(S) Chat Completions endpoint; empty permits MCP-only use }
+        model: { type: string, maxLength: 200 }
+        apiKey: { type: string, maxLength: 2048, writeOnly: true, description: Blank preserves the saved credential }
+        clearKey: { type: boolean, default: false }
+        limits:
+          $ref: "#/components/schemas/AIChatLimits"
+          description: Omit to preserve saved limits. Saved changes apply to subsequent browser chat requests, not externally managed MCP client loops.
+    AIChatLimits:
+      type: object
+      description: Browser chat limits; 0 disables the corresponding limit. Omitted fields in a supplied object use defaults. A tool-free summary may follow the tool phase, within the configured turn timeout.
+      properties:
+        maxRounds: { type: integer, minimum: 0, default: 8 }
+        maxToolCalls: { type: integer, minimum: 0, default: 12 }
+        timeoutSeconds: { type: integer, minimum: 0, maximum: 9223372036, default: 150 }
+    AITokenInput:
+      type: object
+      required: [name, days]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        days: { type: integer, minimum: 1, maximum: 365 }
+    AIChatInput:
+      type: object
+      required: [messages]
+      properties:
+        callIds: { type: array, maxItems: 16, items: { type: string, maxLength: 64 }, description: Rehydrate real receipts owned by the page assistant in the selected scope }
+        roomId: { type: string, maxLength: 255, description: Selected room context, not an authorization boundary. Empty means all rooms. Explicit requests may select another room. }
+        locale: { type: string, enum: [zh-CN, en-US], default: zh-CN }
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 16
+          description: User and assistant text only, last message must be user; each message at most 8192 UTF-8 bytes and total 48 KiB
+          items:
+            type: object
+            required: [role, content]
+            properties:
+              role: { type: string, enum: [user, assistant] }
+              content: { type: string, maxLength: 8192 }
+              files: { type: array, maxItems: 8, items: { type: string, format: uuid }, description: Caller-owned uploaded file references; user messages only }
+              privateInputs: { type: array, maxItems: 8, items: { type: string, format: uuid }, description: Caller-owned encrypted inputs; the model receives references only }
+    AIAttachmentEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [id, name, size, sha256, createdAt]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            size: { type: integer, minimum: 0, maximum: 2147483648 }
+            sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+            createdAt: { type: string, format: date-time }
     NotificationEventKind:
       type: string
       enum: [room.result, backup.result, game.result, mod.result, agent.status, security.login, software.available, custom]
@@ -6083,7 +6515,7 @@ components:
         worldDirectory: { type: string }
         type: { $ref: "#/components/schemas/ShardRuntimeEventType" }
         action: { type: string, enum: [start, stop, restart, cleanup] }
-        source: { type: string, enum: [api, automation, game_update, system_monitor, external] }
+        source: { type: string, enum: [api, ai, automation, game_update, system_monitor, external] }
         previousState: { type: string, enum: [stopped, starting, running, failed, unknown] }
         runtimeState: { type: string, enum: [stopped, starting, running, failed, unknown] }
         reasonCode: { type: string }
@@ -7033,6 +7465,68 @@ components:
       properties:
         confirmation:
           type: string
+    BackupScheduleDefaults:
+      type: object
+      additionalProperties: false
+      required: [name, schedule, timezone, keep]
+      properties:
+        name: { type: string, default: "房间定时备份" }
+        schedule: { type: string, default: "0 4 * * *" }
+        timezone: { type: string, default: "Asia/Shanghai" }
+        keep: { type: integer, minimum: 1, maximum: 100, default: 7 }
+    BackupScheduleInput:
+      type: object
+      additionalProperties: false
+      properties:
+        taskId: { type: string, format: uuid, description: Existing backup task. Required when multiple plans exist. }
+        createNew: { type: boolean, default: false, description: Explicitly create an additional plan instead of reusing one. }
+        expectedRevision: { type: string, format: uuid, description: Latest task revision; mismatches return a conflict. }
+        enabled: { type: boolean, description: Preserve existing state when omitted; new plans default to true. }
+        name: { type: string, minLength: 1, maxLength: 80 }
+        schedule: { type: string, minLength: 1, maxLength: 128, description: Five-field or six-field Cron; new plans default to daily at 04:00. }
+        timezone: { type: string, minLength: 1, maxLength: 64, description: IANA time zone; new plans default to Asia/Shanghai. }
+        keep: { type: integer, minimum: 1, maximum: 100, description: Recent successful automatic snapshots to keep; defaults to 7 only when creating. Manual/protection backups and real saves are preserved. }
+        clearRetention: { type: boolean, default: false, description: Disable automatic snapshot cleanup; mutually exclusive with keep. }
+      not:
+        anyOf:
+          - required: [keep, clearRetention]
+            properties: { clearRetention: { const: true } }
+          - required: [taskId, createNew]
+            properties: { createNew: { const: true } }
+    BackupScheduleResult:
+      type: object
+      additionalProperties: false
+      required: [source, effectiveEnabled, created]
+      properties:
+        source: { type: string, enum: [automation, legacy] }
+        effectiveEnabled: { type: boolean }
+        created: { type: boolean }
+        task: { $ref: "#/components/schemas/AutomationTask" }
+        policy: { $ref: "#/components/schemas/BackupPolicy" }
+        nextRunAt: { type: string, format: date-time }
+        nextRunLocal: { type: string, description: Schedule-local next run time with explicit UTC offset. }
+    BackupScheduleEnvelope:
+      type: object
+      required: [data, error, meta]
+      properties:
+        data: { $ref: "#/components/schemas/BackupScheduleResult" }
+        error: { type: "null" }
+        meta: { $ref: "#/components/schemas/Meta" }
+    BackupSchedulesEnvelope:
+      type: object
+      required: [data, error, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, groups, legacyPolicy, defaults]
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/AutomationTask" } }
+            groups: { type: array, items: { $ref: "#/components/schemas/AutomationGroup" } }
+            legacyPolicy: { $ref: "#/components/schemas/BackupPolicy" }
+            defaults: { $ref: "#/components/schemas/BackupScheduleDefaults" }
+        error: { type: "null" }
+        meta: { $ref: "#/components/schemas/Meta" }
     BackupPolicy:
       type: object
       additionalProperties: false
@@ -9241,6 +9735,18 @@ components:
     AutomationTaskInput:
       type: object
       additionalProperties: false
+      allOf:
+        - if: { properties: { action: { const: backup.create } }, required: [action] }
+          then: { properties: { parameters: { $ref: "#/components/schemas/AutomaticBackupParameters" } } }
+        - if: { properties: { action: { const: backup.prune } }, required: [action] }
+          then:
+            properties:
+              parameters:
+                allOf:
+                  - { $ref: "#/components/schemas/AutomaticBackupParameters" }
+                  - { required: [keep] }
+        - if: { properties: { action: { const: command.execute } }, required: [action] }
+          then: { properties: { parameters: { $ref: "#/components/schemas/AutomationCommandParameters" } } }
       required: [groupId, name, description, enabled, schedule, timezone, action, worldIds, parameters, timeoutSeconds, retryTimes, retryIntervalSeconds, dependencies, expectedRevision]
       properties:
         groupId: { type: string, format: uuid }
@@ -9257,6 +9763,26 @@ components:
         retryIntervalSeconds: { type: integer, minimum: 1, maximum: 3600 }
         dependencies: { type: array, maxItems: 64, items: { type: string, format: uuid } }
         expectedRevision: { type: string }
+    AutomaticBackupParameters:
+      type: object
+      description: Backup settings. Omit keep to disable automatic cleanup; name is an optional archive label. Only successful automatic snapshots are pruned.
+      additionalProperties: true
+      properties:
+        keep: { type: integer, minimum: 1, maximum: 100 }
+        name: { type: string, maxLength: 80 }
+    AutomationCommandParameters:
+      type: object
+      additionalProperties: true
+      description: Existing command template or custom server Lua; not a host shell command.
+      properties:
+        commandId: { type: string, minLength: 1 }
+        rawCommand: { type: string, minLength: 1, maxLength: 4096 }
+        arguments: { type: object, additionalProperties: true }
+      oneOf:
+        - required: [commandId]
+          not: { required: [rawCommand] }
+        - required: [rawCommand]
+          not: { required: [commandId] }
     AutomationTaskEnvelope:
       type: object
       required: [data, error, meta]
@@ -12028,3 +12554,4 @@ components:
           $ref: "#/components/schemas/Meta"
 security:
   - sessionCookie: []
+  - apiBearer: []

@@ -12,7 +12,10 @@ import (
 
 	runtimeagent "dont/agent"
 	"dont/controller"
+	apidocs "dont/docs"
 	agentservice "dont/internal/agents"
+	"dont/internal/aicontrol"
+	"dont/internal/apicontract"
 	"dont/internal/artworkpack"
 	"dont/internal/authn"
 	"dont/internal/automation"
@@ -1162,6 +1165,7 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	}
 	saveImportHandler := httpapi.NewSaveImportHandler(saveImportService, jobService)
 	automationHandler := httpapi.NewAutomationHandler(automationService, automationScheduler)
+	backupScheduleHandler := httpapi.NewBackupScheduleHandler(automationService, backupService, automationScheduler)
 	if backgroundEnabled {
 		backupScheduler := backupapi.NewScheduler(backupService, jobService, backupExecutor)
 		hooks.workers = append(hooks.workers, backupScheduler.Run)
@@ -1310,6 +1314,18 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 		return nil, err
 	}
 	worldMapHandler := httpapi.NewWorldMapHandler(worldMapService, jobService)
+	aiStore := aicontrol.NewStore(models.DB(), tablePrefix, filepath.Join(filepath.Dir(config.ConfigPath), "ai"))
+	if err := aiStore.Migrate(); err != nil {
+		return nil, err
+	}
+	aiBackend := httpapi.NewAIBackend(roomHandler, logHandler, runtimeObservabilityHandler, runtimeHandler, worldStateHandler, runtimeAuditHandler, jobHandler, consoleHandler, deploymentProfile.MemberEnabled, httpapi.AIPlatformQueries{Players: playerService, Mods: modControlService, ModMetadata: modService, Backups: backupService, BackupSets: distributedBackupService, Automation: automationService})
+	aiService := aicontrol.New(aiStore, aiBackend)
+	apiContract, err := apicontract.Default()
+	if err != nil {
+		return nil, fmt.Errorf("load OpenAPI contract: %w", err)
+	}
+	aiService.ConfigureAPI(apiContract)
+	aiHandler := httpapi.NewAIHandler(aiService)
 	if err := models.RecordMigration(models.CurrentMigrationVersion); err != nil {
 		return nil, err
 	}
@@ -1324,6 +1340,8 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	}
 	idempotencyStore := httpapi.NewIdempotencyStore(15*time.Minute, 2048)
 	router := gin.New()
+	aiBackend.ConfigureAPI(router, aiStore)
+	aiHandler.ConfigureResources(router)
 	if err := httpapi.ConfigureTrustedProxies(router, os.Getenv("DST_ADMIN_TRUSTED_PROXIES")); err != nil {
 		return nil, err
 	}
@@ -1341,13 +1359,27 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	agentHandler.RegisterDownloads(router)
 	modArtifactHandler.RegisterDownloads(router)
 
-	api := router.Group("/api", httpapi.AdminIPPolicy(func() string {
+	adminIPPolicy := httpapi.AdminIPPolicy(func() string {
 		preferences, runtimeErr := systemSettingsService.Runtime()
 		if runtimeErr != nil {
 			return ""
 		}
 		return preferences.IPWhitelist
-	}), httpapi.RequireSession(authService))
+	})
+	router.Any("/mcp", adminIPPolicy, func(c *gin.Context) {
+		ctx := aicontrol.WithRequestMetadata(c.Request.Context(), aicontrol.RequestAccess(c.Request, c.ClientIP()))
+		aiService.MCP(c.Writer, c.Request.WithContext(ctx))
+	})
+	api := router.Group("/api", adminIPPolicy, httpapi.RequireSession(authService, func(secret string) (authn.Admin, error) {
+		if !aiService.Enabled() {
+			return authn.Admin{}, authn.ErrInvalidSession
+		}
+		principal, err := aiStore.Authenticate(secret)
+		if err != nil {
+			return authn.Admin{}, err
+		}
+		return authService.AdministratorByID(principal.AdminID)
+	}))
 	{
 		// Reject local Member mutations before validating write-specific headers so
 		// every blocked request reports the same read-only contract.
@@ -1384,6 +1416,7 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 		playerHandler.Register(v2)
 		worldStateHandler.Register(v2)
 		automationHandler.Register(v2)
+		backupScheduleHandler.Register(v2)
 		agentHandler.Register(v2)
 		kubernetesRuntimeHandler.Register(v2)
 		topologyHandler.Register(v2)
@@ -1392,6 +1425,11 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 		systemStatusHandler.Register(v2)
 		systemSettingsHandler.Register(v2)
 		notificationHandler.Register(v2)
+		aiHandler.Register(v2)
+		v2.GET("/system/openapi", func(c *gin.Context) {
+			c.Header("Cache-Control", "no-store")
+			c.Data(200, "application/yaml", apidocs.OpenAPI)
+		})
 		softwareHandler.Register(v2)
 		entityCatalogHandler.Register(v2)
 		artworkPackHandler.Register(v2)
