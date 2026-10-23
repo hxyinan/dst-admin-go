@@ -30,9 +30,9 @@ const (
 	maxManagedBytes    = int64(2 * 1024 * 1024)
 )
 
-const managedLoader = `-- DST-ADMIN MANAGED BLOCK BEGIN protocol=2 version=2.4.10
+const managedLoader = `-- DST-ADMIN MANAGED BLOCK BEGIN protocol=2 version=2.4.11
 do
-    TheSim:GetPersistentString("../dst-admin/bootstrap.lua", function(success, source)
+    TheSim:GetPersistentString("mod_config_data/dst-admin/runtime/bootstrap.lua", function(success, source)
         if not success or type(source) ~= "string" then
             print("[DST-ADMIN-RUNTIME ERROR] code=BOOTSTRAP_UNAVAILABLE")
             return
@@ -282,6 +282,9 @@ func (m *Manager) UninstallWorld(ctx context.Context, roomID, worldID string) (W
 	if err != nil {
 		return WorldStatus{}, err
 	}
+	if _, err := checkExecutionDirectory(worldPath, false); err != nil {
+		return WorldStatus{}, err
+	}
 	if len(bytes.TrimSpace(updated)) == 0 {
 		if err := os.Remove(customPath); err != nil && !os.IsNotExist(err) {
 			return WorldStatus{}, err
@@ -289,8 +292,17 @@ func (m *Manager) UninstallWorld(ctx context.Context, roomID, worldID string) (W
 	} else if err := atomicWrite(customPath, updated, mode); err != nil {
 		return WorldStatus{}, err
 	}
-	if err := os.RemoveAll(filepath.Join(worldPath, managedDirectory)); err != nil {
-		return WorldStatus{}, fmt.Errorf("remove managed runtime: %w", err)
+	for _, name := range managedPaths() {
+		if err := os.Remove(filepath.Join(worldPath, name)); err != nil && !os.IsNotExist(err) {
+			return WorldStatus{}, fmt.Errorf("remove managed runtime: %w", err)
+		}
+	}
+	removeEmptyManagedDirectory(worldPath)
+	// Remove only our generated scripts; keep saves, outputs and unknown files.
+	for _, name := range executionPaths() {
+		if err := os.Remove(filepath.Join(worldPath, name)); err != nil && !os.IsNotExist(err) {
+			return WorldStatus{}, err
+		}
 	}
 	return WorldStatus{RoomID: room.ID, WorldID: world.ID, WorldName: world.Name, State: InstallStateMissing, Changed: true, BackupPath: filepath.Join(backupDirectory, backup), Message: "DST Admin 运行时已卸载，用户脚本已保留"}, nil
 }
@@ -327,10 +339,14 @@ func (m *Manager) install(room rooms.Room, world rooms.World) (WorldStatus, erro
 		}
 	}
 	assetsChanged := !manifestExists || currentManifest.Version != RuntimeVersion || currentManifest.ProtocolVersion != ProtocolVersion || !equalHashes(currentManifest.Assets, hashes)
+	executionComplete, err := checkExecutionAssets(worldPath, currentManifest)
+	if err != nil {
+		return status, err
+	}
 	if err := ensureRuntimeOutputDirectory(worldPath); err != nil {
 		return status, err
 	}
-	if !changed && !assetsChanged {
+	if !changed && !assetsChanged && executionComplete {
 		status.State, status.Version, status.Protocol = InstallStateInstalled, RuntimeVersion, ProtocolVersion
 		status.Message = "DST Admin 运行时已是最新版本"
 		return status, nil
@@ -339,7 +355,7 @@ func (m *Manager) install(room rooms.Room, world rooms.World) (WorldStatus, erro
 	if err != nil {
 		return status, err
 	}
-	previous, err := captureFiles(worldPath, append([]string{customCommandsName}, managedPaths()...))
+	previous, err := captureFiles(worldPath, runtimeStatePaths())
 	if err != nil {
 		return status, err
 	}
@@ -365,6 +381,9 @@ func (m *Manager) install(room rooms.Room, world rooms.World) (WorldStatus, erro
 	}
 	encoded = append(encoded, '\n')
 	if err := atomicWrite(filepath.Join(managedRoot, manifestName), encoded, 0640); err != nil {
+		return status, rollback(err)
+	}
+	if err := writeExecutionAssets(worldPath, assets); err != nil {
 		return status, rollback(err)
 	}
 	if mode == 0 {
@@ -424,6 +443,15 @@ func (m *Manager) inspectAt(room rooms.Room, world rooms.World, worldPath string
 	_, hashes, _ := desiredAssets()
 	if current.Version != RuntimeVersion || current.ProtocolVersion != ProtocolVersion || !equalHashes(current.Assets, hashes) || !bytes.Contains(custom, []byte(managedLoader)) {
 		status.State, status.Message = InstallStateOutdated, "运行时需要升级"
+		return status
+	}
+	complete, err := checkExecutionAssets(worldPath, current)
+	if err != nil {
+		status.State, status.Message = InstallStateInvalid, err.Error()
+		return status
+	}
+	if !complete {
+		status.State, status.Message = InstallStateOutdated, "运行时加载文件缺失，请重新安装运行时"
 		return status
 	}
 	status.State, status.Message = InstallStateInstalled, "DST Admin 运行时已安装"

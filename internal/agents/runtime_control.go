@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"dont/internal/requesttiming"
@@ -25,9 +26,15 @@ func (s *Service) ExecuteRuntime(ctx context.Context, targetID string, request s
 		return RuntimeExecutionResult{}, ErrAgentOffline
 	}
 	if !containsString(agent.Capabilities, "runtime.driver.v2") || !containsString(agent.Capabilities, runtimeCapability(request.Action)) {
+		if request.Action == shared.RuntimeActionLuaEnsure {
+			return RuntimeExecutionResult{}, fmt.Errorf("Agent 尚不支持 Runtime 自动维护，请先升级 Agent: %w", ErrUnsupportedAction)
+		}
 		return RuntimeExecutionResult{}, ErrUnsupportedAction
 	}
-	if shared.IsGameInstallationAction(request.Action) || request.Action == shared.RuntimeActionLuaJITObserve || (request.Action == shared.RuntimeActionLuaJITInstall || request.Action == shared.RuntimeActionLuaJITDownload) {
+	if request.Action == shared.RuntimeActionConsoleSend && request.Console != nil && request.Console.CommandDocument != nil && !containsString(agent.Capabilities, shared.RuntimeCommandDocumentCapability) {
+		return RuntimeExecutionResult{}, errors.New("Agent 不支持当前 Runtime 命令文件格式，请先升级 Agent")
+	}
+	if (request.Action == shared.RuntimeActionLuaEnsure && agent.InstallationRegistrySupported) || shared.IsGameInstallationAction(request.Action) || request.Action == shared.RuntimeActionLuaJITObserve || (request.Action == shared.RuntimeActionLuaJITInstall || request.Action == shared.RuntimeActionLuaJITDownload) {
 		registered := false
 		for _, installation := range agent.Installations {
 			if installation.ID == request.InstallationID {
@@ -73,6 +80,8 @@ func runtimeCapability(action shared.RuntimeAction) string {
 		return "runtime.game-install.v1"
 	}
 	switch action {
+	case shared.RuntimeActionLuaEnsure:
+		return shared.RuntimeLuaCapability
 	case shared.RuntimeActionConsoleHealth, shared.RuntimeActionConsoleSend:
 		return "runtime.console.v2"
 	case shared.RuntimeActionReadLogs:

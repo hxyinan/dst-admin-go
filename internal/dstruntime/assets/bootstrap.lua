@@ -1,7 +1,9 @@
-local VERSION = "2.4.10"
+local VERSION = "2.4.11"
 local PROTOCOL_VERSION = 2
-local MODULE_ROOT = "../dst-admin/"
+local MODULE_ROOT = "mod_config_data/dst-admin/runtime/"
 local READY_RETRY_SECONDS = 0.5
+local pending_update = rawget(_G, "DSTAdminPendingUpdate")
+local UPDATE_ID = pending_update ~= nil and pending_update.id or nil
 
 local function emit_error(code, message)
     print(string.format("[DST-ADMIN-RUNTIME ERROR] code=%s message=%s", tostring(code), tostring(message)))
@@ -21,6 +23,10 @@ local function load_module(name, callback)
         local executed, module = xpcall(chunk, debug.traceback)
         if not executed or type(module) ~= "table" then
             callback(nil, "module " .. name .. " failed to load: " .. tostring(module))
+            return
+        end
+        if module.version ~= VERSION then
+            callback(nil, "module " .. name .. " has a different runtime version")
             return
         end
         callback(module, nil)
@@ -52,11 +58,13 @@ end
 local function new_candidate()
     local candidate = {
         version = VERSION,
+        updateId = UPDATE_ID,
         protocolVersion = PROTOCOL_VERSION,
         state = "loading",
         reloadInProgress = false,
         readinessTask = nil,
         readyAnnounced = false,
+        activationCallback = nil,
     }
 
     function candidate.Status()
@@ -184,6 +192,7 @@ local function new_candidate()
                 return false
             end
         end
+        candidate.activationCallback = nil
         candidate.state = "stopped"
         return true
     end
@@ -204,31 +213,39 @@ local function new_candidate()
         return true
     end
 
-    function candidate.Refresh()
+    function candidate.Refresh(callback)
+        local completed = false
+        local function finish(written)
+            if completed then return end
+            completed = true
+            if type(callback) == "function" then callback(written == true) end
+        end
         if candidate.state == "waiting_for_world" and candidate_ready(candidate) then
             candidate.state = "running"
         end
         if candidate.state ~= "running" or candidate.WorldState == nil or candidate.Telemetry == nil then
+            finish(false)
             return false
-        end
-        local function emit_telemetry()
-            local ok, accepted = xpcall(candidate.Telemetry.EmitOnce, debug.traceback)
-            if not ok or accepted ~= true then
-                emit_error("REFRESH_TELEMETRY_FAILED", accepted)
-                return false
-            end
-            return true
         end
         local ok, accepted = xpcall(function()
             return candidate.WorldState.EmitOnce(function(written)
                 if written ~= true then
                     emit_error("REFRESH_WORLDSTATE_FAILED", "world state snapshot was not written")
+                    finish(false)
+                    return
                 end
-                emit_telemetry()
+                local emitted, result = xpcall(function()
+                    return candidate.Telemetry.EmitOnce(function(persisted) finish(persisted) end)
+                end, debug.traceback)
+                if not emitted or result ~= true then
+                    emit_error("REFRESH_TELEMETRY_FAILED", result)
+                    finish(false)
+                end
             end)
         end, debug.traceback)
         if not ok or accepted ~= true then
             emit_error("REFRESH_WORLDSTATE_FAILED", accepted)
+            finish(false)
             return false
         end
         return true
@@ -240,6 +257,21 @@ local function new_candidate()
         print(string.format("[DST-ADMIN-RUNTIME READY] version=%s protocol=%d", VERSION, PROTOCOL_VERSION))
     end
 
+    local function complete_activation()
+        local callback = candidate.activationCallback
+        candidate.activationCallback = nil
+        candidate.state = "running"
+        return candidate.Refresh(function(written)
+            if rawget(_G, "DSTAdmin") ~= candidate or candidate.state == "stopped" then return end
+            if written then
+                announce_ready()
+            else
+                emit_error("INITIAL_REFRESH_FAILED", "runtime did not persist coherent initial snapshots")
+            end
+            if type(callback) == "function" then callback(written) end
+        end)
+    end
+
     local function await_world()
         if rawget(_G, "DSTAdmin") ~= candidate or candidate.state == "stopped" or candidate.state == "failed" then
             candidate.readinessTask = nil
@@ -247,12 +279,7 @@ local function new_candidate()
         end
         if candidate_ready(candidate) then
             candidate.readinessTask = nil
-            candidate.state = "running"
-            if not candidate.Refresh() then
-                emit_error("INITIAL_REFRESH_FAILED", "runtime became ready without coherent initial snapshots")
-                return
-            end
-            announce_ready()
+            complete_activation()
             return
         end
         candidate.state = "waiting_for_world"
@@ -261,15 +288,10 @@ local function new_candidate()
         end
     end
 
-    function candidate.Activate()
+    function candidate.Activate(callback)
+        candidate.activationCallback = callback
         if candidate_ready(candidate) then
-            candidate.state = "running"
-            if not candidate.Refresh() then
-                emit_error("INITIAL_REFRESH_FAILED", "runtime started without coherent initial snapshots")
-                return false
-            end
-            announce_ready()
-            return true
+            return complete_activation()
         end
         candidate.state = "waiting_for_world"
         print(string.format("[DST-ADMIN-RUNTIME WAITING] state=waiting_for_world version=%s protocol=%d", VERSION, PROTOCOL_VERSION))
@@ -336,23 +358,37 @@ activate_candidate = function(previous, candidate, operation)
         end
     end
 
-    if candidate.Start() then
-        rawset(_G, "DSTAdmin", candidate)
-        return candidate.Activate()
-    end
-
-    candidate.Stop()
-    if previous ~= nil and type(previous.Start) == "function" then
-        local restored, restore_result = xpcall(previous.Start, debug.traceback)
-        if not restored or restore_result == false then
-            emit_error(operation .. "_ROLLBACK_FAILED", restore_result)
-        elseif type(previous.Refresh) == "function" then
-            local refreshed, refresh_result = xpcall(previous.Refresh, debug.traceback)
-            if not refreshed or refresh_result == false then
-                emit_error(operation .. "_ROLLBACK_REFRESH_FAILED", refresh_result)
+    local restored = false
+    local function restore_previous()
+        if restored then return end
+        restored = true
+        local current = rawget(_G, "DSTAdmin")
+        if current ~= candidate and current ~= previous then return end
+        pcall(candidate.Stop)
+        rawset(_G, "DSTAdmin", previous)
+        if previous ~= nil and type(previous.Start) == "function" then
+            local ok, result = xpcall(previous.Start, debug.traceback)
+            if not ok or result == false then
+                emit_error(operation .. "_ROLLBACK_FAILED", result)
+            elseif type(previous.Refresh) == "function" then
+                local refreshed, refresh_result = xpcall(previous.Refresh, debug.traceback)
+                if not refreshed or refresh_result == false then
+                    emit_error(operation .. "_ROLLBACK_REFRESH_FAILED", refresh_result)
+                end
             end
         end
     end
+    local started, start_result = xpcall(candidate.Start, debug.traceback)
+    if started and start_result == true then
+        rawset(_G, "DSTAdmin", candidate)
+        local activated, accepted = xpcall(function()
+            return candidate.Activate(function(written)
+                if not written then restore_previous() end
+            end)
+        end, debug.traceback)
+        if activated and accepted == true then return not restored end
+    end
+    restore_previous()
     return false
 end
 
@@ -361,6 +397,8 @@ build_candidate(function(candidate, load_error)
         emit_error("RUNTIME_LOAD_FAILED", load_error)
         return
     end
+    if pending_update ~= nil and (pending_update.aborted or rawget(_G, "DSTAdminPendingUpdate") ~= pending_update) then return end
+    if pending_update ~= nil then pending_update.candidate = candidate end
     activate_candidate(rawget(_G, "DSTAdmin"), candidate, "LOAD")
 end)
 

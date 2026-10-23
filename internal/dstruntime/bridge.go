@@ -25,7 +25,7 @@ const (
 	defaultDiagnosticTimeout = 8 * time.Second
 	defaultLifecycleTimeout  = 10 * time.Second
 	defaultPollInterval      = 100 * time.Millisecond
-	managedActivationScript  = `TheSim:GetPersistentString("../dst-admin/bootstrap.lua",function(ok,source) if not ok or type(source)~="string" then print("[DST-ADMIN-RUNTIME ERROR] code=BOOTSTRAP_UNAVAILABLE") return end local chunk,compile_error=loadstring(source) if chunk==nil then print("[DST-ADMIN-RUNTIME ERROR] code=BOOTSTRAP_COMPILE_FAILED message="..tostring(compile_error)) return end local executed,runtime_error=xpcall(chunk,debug.traceback) if not executed then print("[DST-ADMIN-RUNTIME ERROR] code=BOOTSTRAP_EXECUTE_FAILED message="..tostring(runtime_error)) end end)`
+	managedActivationScript  = `TheSim:GetPersistentString("mod_config_data/dst-admin/runtime/bootstrap.lua",function(ok,source) if not ok or type(source)~="string" then print("[DST-ADMIN-RUNTIME ERROR] code=BOOTSTRAP_UNAVAILABLE") return end local chunk,compile_error=loadstring(source) if chunk==nil then print("[DST-ADMIN-RUNTIME ERROR] code=BOOTSTRAP_COMPILE_FAILED message="..tostring(compile_error)) return end local executed,runtime_error=xpcall(chunk,debug.traceback) if not executed then print("[DST-ADMIN-RUNTIME ERROR] code=BOOTSTRAP_EXECUTE_FAILED message="..tostring(runtime_error)) end end)`
 	managedRefreshScript     = `local runtime=rawget(_G,"DSTAdmin"); if runtime~=nil and type(runtime.Refresh)=="function" then runtime.Refresh() else print("[DST-ADMIN-RUNTIME ERROR] code=REFRESH_UNAVAILABLE") end`
 )
 
@@ -187,8 +187,11 @@ func (b *Bridge) RefreshSnapshots(ctx context.Context, roomID, worldID string) (
 	}
 
 	previous, previousErr := b.manager.Health(room.ID, world.ID)
-	if previousErr != nil || previous.SessionID != expectedSession || previous.ShardID != expectedShard || previous.ProducerVersion != RuntimeVersion {
-		previous = Health{}
+	if previousErr != nil {
+		return SnapshotRefreshResult{}, fmt.Errorf("%w: runtime is not loaded; install and activate the managed runtime: %w", ErrRuntimeUnavailable, previousErr)
+	}
+	if previous.SessionID != expectedSession || previous.ShardID != expectedShard || previous.ProducerVersion != RuntimeVersion || !previous.Running {
+		return SnapshotRefreshResult{}, fmt.Errorf("%w: runtime identity or version differs; install and activate the managed runtime", ErrRuntimeUnavailable)
 	}
 	startedAt := b.now().UTC()
 	if err := b.sender.Send(ctx, room.DirectoryName, world.DirectoryName, managedRefreshScript); err != nil {
@@ -271,14 +274,14 @@ func (b *Bridge) lifecycleReady(ctx context.Context, room rooms.Room, world room
 	return nil
 }
 
-func (b *Bridge) waitForLifecycleHealth(ctx context.Context, roomID, worldID, worldPath string, startedAt time.Time, previousInstanceID string) (Health, error) {
+func (b *Bridge) waitForLifecycleHealth(ctx context.Context, roomID, worldID, worldPath string, startedAt time.Time, previousInstanceID string, updateID ...string) (Health, error) {
 	deadline := time.NewTimer(defaultLifecycleTimeout)
 	defer deadline.Stop()
 	ticker := time.NewTicker(b.pollInterval)
 	defer ticker.Stop()
 	for {
 		health, err := b.manager.Health(roomID, worldID)
-		if err == nil && b.validLifecycleHealth(worldPath, health, startedAt) && (previousInstanceID == "" || health.ProducerInstanceID != previousInstanceID) {
+		if err == nil && b.validLifecycleHealth(worldPath, health, startedAt) && (previousInstanceID == "" || health.ProducerInstanceID != previousInstanceID) && (len(updateID) == 0 || health.UpdateID == updateID[0]) {
 			return health, nil
 		}
 		select {

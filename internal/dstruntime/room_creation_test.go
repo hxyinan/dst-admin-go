@@ -54,7 +54,7 @@ func TestNewRoomAndWorldContainCollectorBeforeProvisioning(t *testing.T) {
 		for _, file := range world.Files {
 			files[file.Name] = true
 		}
-		for _, name := range []string{"customcommands.lua", "dst-admin/manifest.json", "dst-admin/bootstrap.lua", "dst-admin/worldstate.lua", "dst-admin/telemetry.lua"} {
+		for _, name := range []string{"customcommands.lua", "dst-admin/manifest.json", "dst-admin/bootstrap.lua", "dst-admin/worldstate.lua", "dst-admin/telemetry.lua", "save/mod_config_data/dst-admin/runtime/bootstrap.lua", "save/mod_config_data/dst-admin/runtime/telemetry.lua", "save/mod_config_data/dst-admin/runtime/worldstate.lua"} {
 			if !files[name] {
 				t.Fatalf("%s missing %s in remote provision bundle", world.World.Name, name)
 			}

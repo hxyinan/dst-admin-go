@@ -27,7 +27,14 @@ func ReadWorldState(ctx context.Context, saveRoot, cluster, shard string, status
 	value.Artifacts, err = ReadArtifacts(ctx, saveRoot, cluster, shard, shared.ArtifactRuntimeWorldState)
 	if errors.Is(err, os.ErrNotExist) {
 		if status.State == "running" {
-			for _, name := range []string{"customcommands.lua", "dst-admin/bootstrap.lua", "dst-admin/manifest.json"} {
+			for _, name := range []string{"customcommands.lua", "dst-admin/bootstrap.lua", "dst-admin/manifest.json",
+				"save/mod_config_data/dst-admin/runtime/bootstrap.lua",
+				"save/mod_config_data/dst-admin/runtime/telemetry.lua",
+				"save/mod_config_data/dst-admin/runtime/worldstate.lua",
+				"save/mod_config_data/dst-admin/runtime/commands.lua",
+				"save/mod_config_data/dst-admin/runtime/events.lua",
+				"save/mod_config_data/dst-admin/runtime/diagnostics.lua",
+				"save/mod_config_data/dst-admin/runtime/barriers.lua"} {
 				info, statErr := os.Lstat(filepath.Join(root, filepath.FromSlash(name)))
 				if statErr != nil || !info.Mode().IsRegular() {
 					value.ReadError = "状态采集脚本尚未安装或不完整，请在运行时管理中安装并激活采集脚本"

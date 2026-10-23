@@ -1556,6 +1556,7 @@ paths:
       tags: [Runtime]
       operationId: installRoomRuntime
       summary: Idempotently install or upgrade the managed runtime in every shard
+      description: Runs on each shard's applied local or Agent node. Running worlds are hot activated and verified; stopped worlds load the installed version on their next start.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
         "200": { description: Runtime installation results, content: { application/json: { schema: { $ref: "#/components/schemas/DSTRuntimeStatusListEnvelope" } } } }
@@ -1568,6 +1569,7 @@ paths:
       tags: [Runtime]
       operationId: installWorldRuntime
       summary: Idempotently install or upgrade the managed runtime in one shard
+      description: Installs the node's embedded matching Runtime and verifies hot activation when running. User Lua and saves are preserved. An incompatible Agent must be upgraded first.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
         "200": { description: Runtime installation result, content: { application/json: { schema: { $ref: "#/components/schemas/DSTRuntimeStatusEnvelope" } } } }
@@ -6564,6 +6566,7 @@ components:
       additionalProperties: false
       required: [schemaVersion, producerVersion, producerInstanceId, sessionId, shardId, running, ready, writing, sequence, consecutiveFailures]
       properties:
+        updateId: { type: string, maxLength: 80, description: Correlation identifier for the installed Runtime activation attempt }
         schemaVersion: { type: integer, minimum: 1 }
         producerVersion: { type: string }
         producerInstanceId: { type: string }
@@ -6778,6 +6781,16 @@ components:
         data: { $ref: "#/components/schemas/DSTRuntimeDiagnostic" }
         error: { type: "null" }
         meta: { $ref: "#/components/schemas/Meta" }
+    DSTRuntimeUpdate:
+      type: object
+      additionalProperties: false
+      required: [state, message, updatedAt]
+      properties:
+        state: { type: string, enum: [updating, current, updated, failed, disabled] }
+        message: { type: string }
+        version: { type: string }
+        installationState: { $ref: "#/components/schemas/DSTRuntimeInstallState" }
+        updatedAt: { type: string, format: date-time }
     DSTRuntimeReport:
       type: object
       additionalProperties: false
@@ -6795,6 +6808,7 @@ components:
         processRunning: { type: boolean }
         healthState: { $ref: "#/components/schemas/DSTRuntimeHealthState" }
         health: { $ref: "#/components/schemas/DSTRuntimeHealth" }
+        autoUpdate: { $ref: "#/components/schemas/DSTRuntimeUpdate" }
         healthMessage: { type: string }
     DSTRuntimeStatusEnvelope:
       type: object

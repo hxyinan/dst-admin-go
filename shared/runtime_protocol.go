@@ -17,6 +17,7 @@ type RuntimeLogSource string
 const (
 	RuntimeActionConsoleHealth           RuntimeAction = "runtime.console.health"
 	RuntimeActionConsoleSend             RuntimeAction = "runtime.console.send"
+	RuntimeActionLuaEnsure               RuntimeAction = "runtime.lua.ensure"
 	RuntimeActionObserveOperation        RuntimeAction = "runtime.operation.observe"
 	RuntimeActionReadLogs                RuntimeAction = "runtime.logs.read"
 	RuntimeActionChatLogsList            RuntimeAction = "runtime.chat-logs.list"
@@ -135,6 +136,24 @@ type RuntimeCommandDocument struct {
 	RequestID string `json:"request_id"`
 	SHA256    string `json:"sha256"`
 	Data      []byte `json:"data"`
+}
+
+const RuntimeLuaCapability = "runtime.lua.ensure.v1"
+const RuntimeCommandDocumentCapability = "runtime.console.document-storage.v2"
+
+type RuntimeLuaRequest struct {
+	Version          string `json:"version"`
+	InstallIfMissing bool   `json:"install_if_missing,omitempty"`
+}
+
+type RuntimeLuaResult struct {
+	Version  string `json:"version,omitempty"`
+	State    string `json:"state"`
+	Changed  bool   `json:"changed"`
+	Running  bool   `json:"running"`
+	Active   bool   `json:"active"`
+	Deferred bool   `json:"deferred,omitempty"`
+	Message  string `json:"message,omitempty"`
 }
 
 type RuntimeLogRequest struct {
@@ -385,6 +404,7 @@ type RuntimeMapRequest struct {
 // path; execution destinations still come from the installation registry. It
 // never accepts an executable, container specification or shell command.
 type RuntimeOperationRequest struct {
+	LuaRuntime       *RuntimeLuaRequest           `json:"lua_runtime,omitempty"`
 	EntityArtwork    *RuntimeEntityArtworkRequest `json:"entity_artwork,omitempty"`
 	GameInstallation *GameInstallationRequest     `json:"game_installation,omitempty"`
 	LuaJIT           *RuntimeLuaJITRequest        `json:"luajit,omitempty"`
@@ -774,6 +794,7 @@ type RuntimeRoomRecoveryResult struct {
 }
 
 type RuntimeOperationResult struct {
+	LuaRuntime       *RuntimeLuaResult           `json:"lua_runtime,omitempty"`
 	EntityArtwork    *RuntimeEntityArtworkResult `json:"entity_artwork,omitempty"`
 	GameInstallation *GameInstallationReport     `json:"game_installation,omitempty"`
 	LuaJITReleases   []LuaJITRelease             `json:"luajit_releases,omitempty"`
@@ -817,7 +838,7 @@ func IsRuntimeAction(value RuntimeAction) bool {
 		return true
 	}
 	switch value {
-	case RuntimeActionConsoleHealth, RuntimeActionConsoleSend, RuntimeActionObserveOperation, RuntimeActionReadLogs,
+	case RuntimeActionLuaEnsure, RuntimeActionConsoleHealth, RuntimeActionConsoleSend, RuntimeActionObserveOperation, RuntimeActionReadLogs,
 		RuntimeActionChatLogsList, RuntimeActionChatLogsRead, RuntimeActionReadArtifacts, RuntimeActionWorldStateRead, RuntimeActionEntityArtwork,
 		RuntimeActionMigrationExportPrepare, RuntimeActionMigrationExportRead, RuntimeActionMigrationExportRelease,
 		RuntimeActionMigrationPeerGrant, RuntimeActionMigrationFetch,
@@ -857,7 +878,7 @@ func RuntimeActionMutates(value RuntimeAction) bool {
 		return value != RuntimeActionGameInstallationObserve && value != RuntimeActionSteamLoginObserve
 	}
 	switch value {
-	case RuntimeActionConsoleSend, RuntimeActionMigrationExportPrepare, RuntimeActionMigrationExportRelease,
+	case RuntimeActionLuaEnsure, RuntimeActionConsoleSend, RuntimeActionMigrationExportPrepare, RuntimeActionMigrationExportRelease,
 		RuntimeActionMigrationFetch,
 		RuntimeActionMigrationImportBegin, RuntimeActionMigrationImportWrite, RuntimeActionMigrationImportCommit,
 		RuntimeActionMigrationTargetRollback, RuntimeActionMigrationTargetComplete,

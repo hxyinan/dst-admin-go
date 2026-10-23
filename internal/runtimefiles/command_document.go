@@ -50,19 +50,23 @@ func PublishCommandDocument(ctx context.Context, saveRoot, cluster, shard string
 	if err != nil {
 		return err
 	}
-	runtimeRoot := filepath.Join(worldRoot, "dst-admin")
-	info, err := os.Lstat(runtimeRoot)
-	if err != nil {
-		return fmt.Errorf("读取 Runtime 命令目录: %w", err)
-	}
-	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return errors.New("Runtime 命令目录不安全")
+	runtimeRoot := worldRoot
+	// Validate every PersistentStorage parent, not just the final directory.
+	for _, name := range []string{"save", "mod_config_data", "dst-admin"} {
+		runtimeRoot = filepath.Join(runtimeRoot, name)
+		info, err := os.Lstat(runtimeRoot)
+		if err != nil {
+			return fmt.Errorf("读取 Runtime 命令目录: %w", err)
+		}
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("Runtime 命令目录不安全")
+		}
 	}
 	directory := filepath.Join(runtimeRoot, runtimeCommandDocumentDirectory)
 	if err := os.Mkdir(directory, 0750); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("创建 Runtime 命令请求目录: %w", err)
 	}
-	info, err = os.Lstat(directory)
+	info, err := os.Lstat(directory)
 	if err != nil {
 		return fmt.Errorf("读取 Runtime 命令请求目录: %w", err)
 	}

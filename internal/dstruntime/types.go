@@ -8,7 +8,7 @@ import (
 
 const (
 	ProtocolVersion = 2
-	RuntimeVersion  = "2.4.10"
+	RuntimeVersion  = "2.4.11"
 )
 
 var (
@@ -68,6 +68,7 @@ const (
 )
 
 type WorldReport struct {
+	AutoUpdate *UpdateReport `json:"autoUpdate,omitempty"`
 	WorldStatus
 	ProcessRunning bool        `json:"processRunning"`
 	HealthState    HealthState `json:"healthState"`
@@ -164,6 +165,7 @@ type WorldStateSnapshot struct {
 }
 
 type Health struct {
+	UpdateID                 string                  `json:"updateId,omitempty"`
 	SchemaVersion            int                     `json:"schemaVersion"`
 	ProducerVersion          string                  `json:"producerVersion"`
 	ProducerInstanceID       string                  `json:"producerInstanceId"`

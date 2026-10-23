@@ -8,9 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"dont/internal/agents"
 	"dont/internal/dstruntime"
+	"dont/internal/operationlease"
 	"dont/internal/rooms"
 	"dont/internal/shards"
+	"dont/shared"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -52,7 +55,13 @@ type identifiedDSTRuntimeProcess interface {
 	StatusFor(context.Context, string, string) (shards.RuntimeStatus, error)
 }
 
+type DSTRuntimeUpdater interface {
+	EnsureWorld(context.Context, string, string, bool) (shared.RuntimeLuaResult, error)
+	Report(string, string) (dstruntime.UpdateReport, bool)
+}
+
 type DSTRuntimeHandler struct {
+	updater DSTRuntimeUpdater
 	runtime DSTRuntimeManager
 	rooms   DSTRuntimeCatalog
 	process DSTRuntimeProcess
@@ -78,6 +87,8 @@ func NewDSTRuntimeHandler(runtime DSTRuntimeManager, catalog DSTRuntimeCatalog, 
 	}
 	return handler
 }
+
+func (h *DSTRuntimeHandler) ConfigureUpdater(updater DSTRuntimeUpdater) { h.updater = updater }
 
 func (h *DSTRuntimeHandler) Register(v2 *gin.RouterGroup) {
 	room := v2.Group("/rooms/:roomId")
@@ -180,6 +191,17 @@ func (h *DSTRuntimeHandler) status(c *gin.Context) {
 		return
 	}
 	items := make([]dstruntime.WorldReport, 0, len(statuses))
+	appendReport := func(report dstruntime.WorldReport) {
+		if h.updater != nil {
+			if update, ok := h.updater.Report(room.ID, report.WorldID); ok {
+				report.AutoUpdate = &update
+				if update.State == "failed" {
+					report.HealthMessage = "Runtime 自动更新失败：" + update.Message
+				}
+			}
+		}
+		items = append(items, report)
+	}
 	for _, status := range statuses {
 		report := dstruntime.WorldReport{WorldStatus: status, HealthState: dstruntime.HealthStateUnavailable}
 		world, worldErr := h.rooms.World(room.ID, status.WorldID)
@@ -190,43 +212,57 @@ func (h *DSTRuntimeHandler) status(c *gin.Context) {
 		}
 		if worldErr != nil {
 			report.HealthMessage = "无法确认分片进程状态：" + worldErr.Error()
-			items = append(items, report)
+			appendReport(report)
 			continue
 		}
 		if bridge, ok := h.bridge.(distributedDSTRuntimeBridge); ok {
 			local, localityErr := bridge.IsLocalPlacement(room.ID, status.WorldID)
 			if localityErr != nil {
 				report.HealthMessage = "无法解析分片执行位置：" + localityErr.Error()
-				items = append(items, report)
+				appendReport(report)
 				continue
 			}
 			if !local {
+				if h.updater != nil {
+					if update, ok := h.updater.Report(room.ID, status.WorldID); ok && update.InstallationState == string(dstruntime.InstallStateInstalled) {
+						status.State, status.Version, status.Message = dstruntime.InstallStateInstalled, update.Version, update.Message
+						status.Protocol = dstruntime.ProtocolVersion
+						report.WorldStatus = status
+						if processStatus.State == shards.RuntimeStopped || processStatus.State == shards.RuntimeFailed {
+							report.HealthState, report.HealthMessage = dstruntime.HealthStateStopped, update.Message
+							appendReport(report)
+							continue
+						}
+					}
+				}
 				health, healthErr := bridge.Health(c.Request.Context(), room.ID, status.WorldID)
 				if healthErr != nil {
-					status.State = dstruntime.InstallStateMissing
-					status.Version = ""
+					if status.State != dstruntime.InstallStateInstalled {
+						status.State = dstruntime.InstallStateMissing
+						status.Version = ""
+					}
 					status.Message = "目标 Agent 未提供可用的 Runtime 制品"
 					report.WorldStatus = status
 					report.HealthMessage = healthErr.Error()
-					items = append(items, report)
+					appendReport(report)
 					continue
 				}
 				status.State, status.Version, status.Protocol = dstruntime.InstallStateInstalled, health.ProducerVersion, dstruntime.ProtocolVersion
 				report.WorldStatus, report.Health = status, &health
 				report.HealthState, report.HealthMessage = h.describeHealth(c.Request.Context(), room.ID, status.WorldID, health, processStatus)
-				items = append(items, report)
+				appendReport(report)
 				continue
 			}
 		}
 		if status.State != dstruntime.InstallStateInstalled {
 			report.HealthMessage = "运行时尚未安装或需要修复"
-			items = append(items, report)
+			appendReport(report)
 			continue
 		}
 		health, healthErr := h.runtime.Health(room.ID, status.WorldID)
 		if healthErr != nil {
 			report.HealthMessage = healthErr.Error()
-			items = append(items, report)
+			appendReport(report)
 			continue
 		}
 		report.Health = &health
@@ -235,12 +271,29 @@ func (h *DSTRuntimeHandler) status(c *gin.Context) {
 			report.HealthState = dstruntime.HealthStateDegraded
 			report.HealthMessage = "运行中的版本为 " + health.ProducerVersion + "，已安装版本为 " + status.Version + "；请激活以应用新版本"
 		}
-		items = append(items, report)
+		appendReport(report)
 	}
 	Success(c, http.StatusOK, gin.H{"items": items, "total": len(items)})
 }
 
 func (h *DSTRuntimeHandler) installRoom(c *gin.Context) {
+	if h.updater != nil {
+		statuses, err := h.runtime.StatusRoom(c.Param("roomId"))
+		if err != nil {
+			dstRuntimeFailure(c, err)
+			return
+		}
+		for i := range statuses {
+			value, err := h.updater.EnsureWorld(c.Request.Context(), c.Param("roomId"), statuses[i].WorldID, true)
+			if err != nil {
+				dstRuntimeFailure(c, err)
+				return
+			}
+			statuses[i].State, statuses[i].Version, statuses[i].Protocol, statuses[i].Changed, statuses[i].Message = dstruntime.InstallState(value.State), value.Version, dstruntime.ProtocolVersion, value.Changed, value.Message
+		}
+		Success(c, http.StatusOK, gin.H{"items": statuses, "total": len(statuses)})
+		return
+	}
 	if bridge, ok := h.bridge.(distributedDSTRuntimeBridge); ok {
 		statuses, err := h.runtime.StatusRoom(c.Param("roomId"))
 		if err != nil {
@@ -268,6 +321,21 @@ func (h *DSTRuntimeHandler) installRoom(c *gin.Context) {
 }
 
 func (h *DSTRuntimeHandler) installWorld(c *gin.Context) {
+	if h.updater != nil {
+		roomID, worldID := c.Param("roomId"), c.Param("worldId")
+		value, err := h.updater.EnsureWorld(c.Request.Context(), roomID, worldID, true)
+		if err != nil {
+			dstRuntimeFailure(c, err)
+			return
+		}
+		world, err := h.rooms.World(roomID, worldID)
+		if err != nil {
+			dstRuntimeFailure(c, err)
+			return
+		}
+		Success(c, http.StatusOK, dstruntime.WorldStatus{RoomID: roomID, WorldID: worldID, WorldName: world.Name, State: dstruntime.InstallState(value.State), Version: value.Version, Protocol: dstruntime.ProtocolVersion, Changed: value.Changed, Message: value.Message})
+		return
+	}
 	if !h.allowLocalRuntimeMutation(c, c.Param("roomId"), c.Param("worldId")) {
 		return
 	}
@@ -458,6 +526,10 @@ func dstRuntimeFailure(c *gin.Context, err error) {
 		Failure(c, http.StatusConflict, "ROOM_UNAVAILABLE", "房间当前不可用，请检查运行节点与拓扑状态", nil)
 	case errors.Is(err, dstruntime.ErrManagedBlockInvalid), errors.Is(err, dstruntime.ErrManagedFileChanged):
 		Failure(c, http.StatusConflict, "RUNTIME_CONFLICT", "检测到用户修改或损坏的运行时文件，已停止操作", nil)
+	case errors.Is(err, operationlease.ErrBusy), errors.Is(err, dstruntime.ErrRuntimeRefreshDeferred):
+		Failure(c, http.StatusConflict, "RUNTIME_MAINTENANCE_DEFERRED", "当前房间或 Runtime 操作尚未完成，请稍后重试", gin.H{"reason": err.Error()})
+	case errors.Is(err, agents.ErrUnsupportedAction):
+		Failure(c, http.StatusConflict, "RUNTIME_AGENT_UPGRADE_REQUIRED", "请先升级目标 Agent，再重试 Runtime 维护", gin.H{"reason": err.Error()})
 	case errors.Is(err, dstruntime.ErrRuntimeRequestInvalid):
 		Failure(c, http.StatusUnprocessableEntity, "INVALID_RUNTIME_REQUEST", "运行诊断参数无效", nil)
 	case errors.Is(err, dstruntime.ErrRuntimeResultAbsent):
@@ -469,6 +541,6 @@ func dstRuntimeFailure(c *gin.Context, err error) {
 	case errors.Is(err, dstruntime.ErrRuntimeResultStale), errors.Is(err, dstruntime.ErrRuntimeResultInvalid):
 		Failure(c, http.StatusConflict, "RUNTIME_RESULT_INVALID", "运行时结果已过期或损坏", nil)
 	default:
-		Failure(c, http.StatusInternalServerError, "RUNTIME_OPERATION_FAILED", "DST Admin 运行时操作失败", nil)
+		Failure(c, http.StatusInternalServerError, "RUNTIME_OPERATION_FAILED", "DST Admin 运行时操作失败", gin.H{"reason": err.Error()})
 	}
 }

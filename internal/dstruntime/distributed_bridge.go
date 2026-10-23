@@ -255,8 +255,14 @@ func (b *DistributedBridge) RefreshSnapshots(ctx context.Context, roomID, worldI
 		return SnapshotRefreshResult{}, statusErr
 	}
 	finishPrevious := requesttiming.Start(ctx, "refresh.previous_health")
-	previous, _ := b.Health(ctx, roomID, worldID)
+	previous, previousErr := b.Health(ctx, roomID, worldID)
 	finishPrevious()
+	if previousErr != nil {
+		return SnapshotRefreshResult{}, fmt.Errorf("%w: runtime is not loaded; install and activate the managed runtime: %w", ErrRuntimeUnavailable, previousErr)
+	}
+	if !previous.Running {
+		return SnapshotRefreshResult{}, fmt.Errorf("%w: runtime is stopped; activate the managed runtime", ErrRuntimeUnavailable)
+	}
 	startedAt := b.now().UTC()
 	finishSend := requesttiming.Start(ctx, "refresh.console_send")
 	_, err := b.send(ctx, roomID, worldID, managedRefreshScript, shared.ConsoleModeProbe, "runtime.snapshot.refresh:"+worldID)

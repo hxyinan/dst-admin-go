@@ -42,7 +42,7 @@ func (s *bridgeSender) Send(_ context.Context, _, _ string, script string) error
 		if end := strings.IndexByte(value, '"'); end >= 0 {
 			requestID = value[:end]
 		}
-		data, err := os.ReadFile(filepath.Join(s.root, "Cluster_1", "Master", managedDirectory, "command-requests", requestID+".json"))
+		data, err := os.ReadFile(filepath.Join(s.root, "Cluster_1", "Master", "save", "mod_config_data", managedDirectory, "command-requests", requestID+".json"))
 		if err != nil {
 			return err
 		}
@@ -78,6 +78,10 @@ func TestBridgeActivatesAndReloadsOnlyTheManagedRuntime(t *testing.T) {
 	}
 	output := filepath.Join(worldPath, "save", "mod_config_data", managedDirectory)
 	if err := os.RemoveAll(output); err != nil {
+		t.Fatal(err)
+	}
+	// Missing execution scripts now require explicit repair, not activation.
+	if _, err := manager.InstallWorld(context.Background(), catalog.room.ID, catalog.worlds[0].ID); err != nil {
 		t.Fatal(err)
 	}
 	instance := 0
@@ -221,7 +225,7 @@ func TestBridgePublishesLongCommandDocumentBeforeShortTrigger(t *testing.T) {
 	if len(sender.scripts) != 1 || !strings.HasPrefix(sender.scripts[0], "DSTAdmin.Commands.ExecuteFile(") || len(sender.scripts[0]) > maximumDirectRuntimeCommandBytes {
 		t.Fatalf("long command trigger=%#v", sender.scripts)
 	}
-	data, err := os.ReadFile(filepath.Join(root, "Cluster_1", "Master", managedDirectory, "command-requests", request.RequestID+".json"))
+	data, err := os.ReadFile(filepath.Join(root, "Cluster_1", "Master", "save", "mod_config_data", managedDirectory, "command-requests", request.RequestID+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -331,7 +331,7 @@ func TestRefreshWorldsPreservesLivePlayersWhenRuntimeRefreshIsDeferred(t *testin
 	service.now = func() time.Time { return now.Add(time.Minute) }
 
 	outcomes, err := service.RefreshWorlds(context.Background(), "room", []string{"master"})
-	if err != nil || len(outcomes) != 1 || outcomes[0].Err != nil || !outcomes[0].Deferred {
+	if err != nil || len(outcomes) != 1 || !errors.Is(outcomes[0].Err, dstruntime.ErrRuntimeRefreshDeferred) || !outcomes[0].Deferred {
 		t.Fatalf("deferred outcomes=%#v error=%v", outcomes, err)
 	}
 	player, err := store.Get("room", "KU_CURRENT")

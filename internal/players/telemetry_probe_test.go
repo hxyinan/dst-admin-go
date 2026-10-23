@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -186,5 +187,104 @@ func TestTelemetryProbeReturnsErrorWhenRuntimeAndFallbackFail(t *testing.T) {
 	result, err := probe.SnapshotDetailed(context.Background(), "room", "master")
 	if err == nil || !errors.Is(err, ErrProbeTimedOut) || len(result.Observations) != 0 {
 		t.Fatalf("dual failure was accepted: result=%#v err=%v", result, err)
+	}
+}
+
+func TestTelemetryFailureBackoffKeepsPassiveRecoveryAndWorldIsolation(t *testing.T) {
+	now := time.Date(2026, 10, 23, 9, 0, 0, 0, time.UTC)
+	runtime := &refreshableTelemetryTestReader{telemetryTestReader: &telemetryTestReader{err: dstruntime.ErrSnapshotUnavailable}, refreshErr: dstruntime.ErrRuntimeUnavailable}
+	fallback := &telemetryTestProbe{items: []Observation{{ID: "KU_CURRENT", Name: "Current"}}}
+	probe, err := NewTelemetryProbe(&telemetryTestProbe{}, runtime, fallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe.now = func() time.Time { return now }
+	first, err := probe.SnapshotDetailed(context.Background(), "room", "master")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 20; i++ {
+		result, err := probe.SnapshotDetailed(context.Background(), "room", "master")
+		if !errors.Is(err, ErrTelemetryRecoveryDeferred) || !result.ObservedAt.IsZero() || len(result.Observations) != 0 {
+			t.Fatalf("fabricated fresh fallback: %+v %v", result, err)
+		}
+	}
+	if runtime.refreshCalls != 1 || fallback.calls != 1 || !first.ObservedAt.Equal(now) {
+		t.Fatalf("refresh=%d fallback=%d first=%+v", runtime.refreshCalls, fallback.calls, first)
+	}
+	// A failing Master must not throttle Caves or the same name in another Room.
+	for _, key := range [][2]string{{"room", "caves"}, {"other-room", "master"}} {
+		if _, err := probe.SnapshotDetailed(context.Background(), key[0], key[1]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if fallback.calls != 3 {
+		t.Fatalf("independent worlds shared cooldown: %d", fallback.calls)
+	}
+	now = now.Add(30 * time.Second)
+	if _, err := probe.SnapshotDetailed(context.Background(), "room", "master"); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(30 * time.Second)
+	if _, err := probe.SnapshotDetailed(context.Background(), "room", "master"); !errors.Is(err, ErrTelemetryRecoveryDeferred) {
+		t.Fatalf("backoff did not increase: %v", err)
+	}
+	// An installed/activated runtime becomes usable immediately, within cooldown.
+	runtime.err = nil
+	runtime.snapshot = dstruntime.Snapshot{CapturedAt: now, Players: []dstruntime.SnapshotPlayer{{ID: "KU_CURRENT", Name: "Recovered"}}}
+	result, err := probe.SnapshotDetailed(context.Background(), "room", "master")
+	if err != nil || result.Source != SourceRuntime || result.Observations[0].Name != "Recovered" {
+		t.Fatalf("recovery=%+v err=%v", result, err)
+	}
+	calls := fallback.calls
+	runtime.err = dstruntime.ErrSnapshotUnavailable
+	if _, err := probe.SnapshotDetailed(context.Background(), "room", "master"); err != nil || fallback.calls != calls+1 {
+		t.Fatalf("healthy read did not reset recovery: calls=%d error=%v", fallback.calls, err)
+	}
+}
+
+func TestTelemetryRecoveryCoalescesAndBoundsDemandDrivenState(t *testing.T) {
+	probe, err := NewTelemetryProbe(&telemetryTestProbe{}, &telemetryTestReader{}, &telemetryTestProbe{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 23, 9, 0, 0, 0, time.UTC)
+	probe.now = func() time.Time { return now }
+	key := telemetryRecoveryKey{"room", "world"}
+	finish, allowed := probe.beginRecovery(key)
+	if !allowed {
+		t.Fatal("first probe rejected")
+	}
+	var concurrent sync.WaitGroup
+	for i := 0; i < 32; i++ {
+		concurrent.Add(1)
+		go func() {
+			defer concurrent.Done()
+			if _, allowed := probe.beginRecovery(key); allowed {
+				t.Error("duplicate active recovery allowed")
+			}
+		}()
+	}
+	concurrent.Wait()
+	finish(false)
+	for i := 0; i < 20; i++ {
+		now = now.Add(10 * time.Minute)
+		finish, allowed = probe.beginRecovery(key)
+		if !allowed {
+			t.Fatal("expired cooldown rejected")
+		}
+		finish(false)
+		if delay := probe.recoveries[key].retryAt.Sub(now); delay > 5*time.Minute || delay < 30*time.Second {
+			t.Fatalf("unbounded cooldown: %v", delay)
+		}
+	}
+	for i := 0; i < maxTelemetryRecoveries+10; i++ {
+		done, ok := probe.beginRecovery(telemetryRecoveryKey{"room", fmt.Sprint(i)})
+		if ok {
+			done(false)
+		}
+	}
+	if len(probe.recoveries) > maxTelemetryRecoveries {
+		t.Fatalf("unbounded state: %d", len(probe.recoveries))
 	}
 }

@@ -110,7 +110,7 @@ func TestInstallRoomPreservesUserCommandsAndIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestInstallRepairsMissingRuntimeOutputDirectoryWithoutRewritingAssets(t *testing.T) {
+func TestInstallRepairsMissingRuntimeExecutionFiles(t *testing.T) {
 	manager, catalog, root := newRuntimeTestManager(t)
 	world := catalog.worlds[0]
 	first, err := manager.InstallWorld(context.Background(), catalog.room.ID, world.ID)
@@ -122,7 +122,7 @@ func TestInstallRepairsMissingRuntimeOutputDirectoryWithoutRewritingAssets(t *te
 		t.Fatal(err)
 	}
 	second, err := manager.InstallWorld(context.Background(), catalog.room.ID, world.ID)
-	if err != nil || second.Changed {
+	if err != nil || !second.Changed {
 		t.Fatalf("repair install = %#v, error = %v", second, err)
 	}
 	if info, err := os.Stat(output); err != nil || !info.IsDir() {

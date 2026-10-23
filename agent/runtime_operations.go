@@ -17,6 +17,7 @@ import (
 
 	"dont/internal/configpublication"
 	"dont/internal/consoledispatch"
+	"dont/internal/dstruntime"
 	"dont/internal/entityart"
 	"dont/internal/networkprobe"
 	"dont/internal/roomops"
@@ -159,6 +160,19 @@ func (a *Agent) executeRuntimeOperationContext(parent context.Context, commandTy
 		result, operationErr = a.updateGameVersion(operationContext, installation, *request)
 	} else if isCPUAction(request.Action) {
 		result, operationErr = a.executeCPUAction(operationContext, installation, *request)
+	} else if request.Action == shared.RuntimeActionLuaEnsure {
+		control, controlErr := a.runtimeControl(installation)
+		result = runtimeResult(*request, shared.RuntimeOutcomeConfirmed, "Runtime 更新完成")
+		if controlErr != nil {
+			operationErr = controlErr
+		} else {
+			value, updateErr := dstruntime.EnsureNodeWorld(operationContext, installation.SavePath, request.Cluster, request.Shard, *request.LuaRuntime, control)
+			result.LuaRuntime, operationErr = &value, updateErr
+			result.Message = value.Message
+		}
+		if operationErr != nil {
+			result.Outcome, result.Message = shared.RuntimeOutcomeFailed, operationErr.Error()
+		}
 	} else if request.Action == shared.RuntimeActionConsoleSend {
 		control, controlErr := a.runtimeControl(installation)
 		if controlErr != nil {
@@ -197,6 +211,16 @@ func validateRuntimeOperationRequest(commandType string, request shared.RuntimeO
 			request.LeaseExpiresAt.After(now.Add(10*time.Minute)) {
 			return errors.New("Runtime 操作租约无效或已过期")
 		}
+	}
+	if request.Action == shared.RuntimeActionLuaEnsure {
+		if request.LuaRuntime == nil || request.LuaRuntime.Version == "" || len(request.LuaRuntime.Version) > 32 ||
+			request.EntityArtwork != nil || request.GameInstallation != nil || request.LuaJIT != nil || request.Console != nil || request.Logs != nil || request.ChatLogs != nil || request.Artifacts != nil || request.Observation != nil || request.Migration != nil || request.Backup != nil || request.Mod != nil || request.GameVersion != nil || request.Network != nil || request.CPU != nil || request.Configuration != nil || request.Map != nil {
+			return errors.New("Runtime 更新请求负载无效")
+		}
+		return nil
+	}
+	if request.LuaRuntime != nil {
+		return errors.New("Runtime 操作包含无关 Lua 更新负载")
 	}
 	if request.Action == shared.RuntimeActionEntityArtwork {
 		if request.EntityArtwork == nil || !entityart.Valid(request.EntityArtwork.Prefab, request.EntityArtwork.ModID) ||

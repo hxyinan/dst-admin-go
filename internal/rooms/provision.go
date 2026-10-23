@@ -24,6 +24,13 @@ var provisionWorldFiles = []string{
 	filepath.Join("dst-admin", "worldstate.lua"), filepath.Join("dst-admin", "commands.lua"),
 	filepath.Join("dst-admin", "events.lua"), filepath.Join("dst-admin", "diagnostics.lua"),
 	filepath.Join("dst-admin", "barriers.lua"), filepath.Join("dst-admin", "manifest.json"),
+	"save/mod_config_data/dst-admin/runtime/bootstrap.lua",
+	"save/mod_config_data/dst-admin/runtime/telemetry.lua",
+	"save/mod_config_data/dst-admin/runtime/worldstate.lua",
+	"save/mod_config_data/dst-admin/runtime/commands.lua",
+	"save/mod_config_data/dst-admin/runtime/events.lua",
+	"save/mod_config_data/dst-admin/runtime/diagnostics.lua",
+	"save/mod_config_data/dst-admin/runtime/barriers.lua",
 }
 
 type ProvisionFile struct {

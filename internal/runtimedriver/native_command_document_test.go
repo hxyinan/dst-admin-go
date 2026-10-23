@@ -14,7 +14,7 @@ import (
 
 func TestNativeSendConsolePublishesCommandDocumentBeforeTrigger(t *testing.T) {
 	root := t.TempDir()
-	directory := filepath.Join(root, "Cluster_1", "Master", "dst-admin")
+	directory := filepath.Join(root, "Cluster_1", "Master", "save", "mod_config_data", "dst-admin")
 	if err := os.MkdirAll(directory, 0750); err != nil {
 		t.Fatal(err)
 	}

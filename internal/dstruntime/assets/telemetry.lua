@@ -2,7 +2,7 @@ local json = require("json")
 
 local M = {}
 local SCHEMA_VERSION = 2
-local PRODUCER_VERSION = "2.4.10"
+local PRODUCER_VERSION = "2.4.11"
 local SNAPSHOT_INTERVAL = 5
 local READY_RETRY_SECONDS = 1
 local READY_RETRY_LIMIT = 60
@@ -163,6 +163,7 @@ local function health_payload()
     end
     return {
         schemaVersion = 1,
+        updateId = runtime ~= nil and runtime.updateId or nil,
         producerVersion = PRODUCER_VERSION,
         producerInstanceId = instance_id,
         sessionId = session_id,
@@ -340,4 +341,5 @@ function M.Status()
     return health_payload()
 end
 
+M.version = PRODUCER_VERSION
 return M

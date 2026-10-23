@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"dont/internal/dstruntime"
@@ -41,6 +42,17 @@ type placementLocality interface {
 	IsLocalPlacement(string, string) (bool, error)
 }
 
+var ErrTelemetryRecoveryDeferred = errors.New("runtime telemetry recovery is cooling down or already in progress")
+
+const maxTelemetryRecoveries = 1024
+
+type telemetryRecoveryKey struct{ roomID, worldID string }
+type telemetryRecovery struct {
+	active   bool
+	failures int
+	retryAt  time.Time
+}
+
 type TelemetryProbe struct {
 	native         Probe
 	runtime        RuntimeSnapshotReader
@@ -49,6 +61,8 @@ type TelemetryProbe struct {
 	history        HistoryProbe
 	locality       placementLocality
 	now            func() time.Time
+	recoveryMu     sync.Mutex
+	recoveries     map[telemetryRecoveryKey]*telemetryRecovery
 }
 
 func NewTelemetryProbe(native Probe, runtime RuntimeSnapshotReader, fallback Probe, localities ...placementLocality) (*TelemetryProbe, error) {
@@ -88,6 +102,18 @@ func (p *TelemetryProbe) SnapshotDetailed(ctx context.Context, roomID, worldID s
 	nativeAt := p.now().UTC()
 	native = stampNativeObservations(native, nativeAt)
 	snapshot, runtimeErr := p.runtime.ReadPlayers(ctx, roomID, worldID)
+	key := telemetryRecoveryKey{roomID, worldID}
+	if runtimeErr == nil {
+		p.resetRecovery(key)
+	} else {
+		finish, allowed := p.beginRecovery(key)
+		if !allowed {
+			return SnapshotResult{}, errors.Join(runtimeErr, ErrTelemetryRecoveryDeferred)
+		}
+		// Even a successful console fallback leaves the managed runtime broken.
+		// Back off active probes, while continuing passive reads on every request.
+		defer func() { finish(runtimeErr == nil || ctx.Err() != nil) }()
+	}
 	if runtimeErr != nil && refreshableSnapshotError(runtimeErr) {
 		if refresher, ok := p.runtime.(runtimeSnapshotRefresher); ok {
 			refreshed, refreshErr := refresher.RefreshSnapshots(ctx, roomID, worldID)
@@ -126,6 +152,61 @@ func (p *TelemetryProbe) SnapshotDetailed(ctx context.Context, roomID, worldID s
 	return SnapshotResult{
 		Observations: mergeSnapshotIdentities(native, fallback), Source: SourceConsoleFallback, ObservedAt: fallbackAt, Degraded: true, Warning: warning,
 	}, nil
+}
+
+func (p *TelemetryProbe) resetRecovery(key telemetryRecoveryKey) {
+	p.recoveryMu.Lock()
+	defer p.recoveryMu.Unlock()
+	if state := p.recoveries[key]; state != nil && !state.active {
+		delete(p.recoveries, key)
+	}
+}
+
+func (p *TelemetryProbe) beginRecovery(key telemetryRecoveryKey) (func(bool), bool) {
+	p.recoveryMu.Lock()
+	defer p.recoveryMu.Unlock()
+	if p.recoveries == nil {
+		p.recoveries = make(map[telemetryRecoveryKey]*telemetryRecovery)
+	}
+	now := p.now()
+	state := p.recoveries[key]
+	if state != nil && (state.active || now.Before(state.retryAt)) {
+		return nil, false
+	}
+	if state == nil {
+		if len(p.recoveries) >= maxTelemetryRecoveries {
+			var oldestKey telemetryRecoveryKey
+			var oldest *telemetryRecovery
+			for candidate, value := range p.recoveries {
+				if !value.active && (oldest == nil || value.retryAt.Before(oldest.retryAt)) {
+					oldestKey, oldest = candidate, value
+				}
+			}
+			if oldest == nil {
+				return nil, false
+			}
+			delete(p.recoveries, oldestKey)
+		}
+		state = &telemetryRecovery{}
+		p.recoveries[key] = state
+	}
+	state.active = true
+	return func(recovered bool) {
+		p.recoveryMu.Lock()
+		defer p.recoveryMu.Unlock()
+		if recovered {
+			delete(p.recoveries, key)
+			return
+		}
+		state.active = false
+		delay := 30 * time.Second * time.Duration(1<<state.failures)
+		if delay >= 5*time.Minute {
+			delay = 5 * time.Minute
+		} else {
+			state.failures++
+		}
+		state.retryAt = p.now().Add(delay)
+	}, true
 }
 
 func refreshableSnapshotError(err error) bool {

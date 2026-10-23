@@ -321,7 +321,7 @@ func TestCommandsLuaLoadsCommandDocumentAndKeepsReceiptIdentity(t *testing.T) {
 	}
 	result := requireLuaTable(t, state.Get(-1), "file command result")
 	if !lua.LVAsBool(state.GetField(result, "ok")) || state.GetGlobal("DST_ADMIN_FILE_TEST") != lua.LTrue ||
-		loadedPath != "../dst-admin/command-requests/file-command-1234.json" || erasedPath != loadedPath ||
+		loadedPath != "mod_config_data/dst-admin/command-requests/file-command-1234.json" || erasedPath != loadedPath ||
 		writtenPath != "mod_config_data/dst-admin/command-receipt-a.json" ||
 		!strings.Contains(writtenJSON, `"requestId":"file-command-1234"`) || !strings.Contains(writtenJSON, `"action":"console.execute"`) {
 		t.Fatalf("result=%v loaded=%q erased=%q written=%q receipt=%s value=%v", result, loadedPath, erasedPath, writtenPath, writtenJSON, state.GetGlobal("DST_ADMIN_FILE_TEST"))
@@ -375,8 +375,8 @@ func TestCommandsLuaSerializesFileSignalsAndPersistsMismatch(t *testing.T) {
 		}
 		state.Pop(1)
 	}
-	firstPath := "../dst-admin/command-requests/" + firstID + ".json"
-	secondPath := "../dst-admin/command-requests/" + secondID + ".json"
+	firstPath := "mod_config_data/dst-admin/command-requests/" + firstID + ".json"
+	secondPath := "mod_config_data/dst-admin/command-requests/" + secondID + ".json"
 	if readCallbacks[firstPath] == nil || readCallbacks[secondPath] != nil {
 		t.Fatalf("initial reads=%v", readCallbacks)
 	}
@@ -893,13 +893,14 @@ EmitOnce=function(callback) refresh_order=(refresh_order or "").."worldstate,"; 
 		path := L.CheckString(2)
 		callback := L.CheckFunction(3)
 		source := lifecycleSource
-		if path == "../dst-admin/telemetry.lua" {
+		if path == "mod_config_data/dst-admin/runtime/telemetry.lua" {
 			source = telemetrySource
-		} else if path == "../dst-admin/worldstate.lua" {
+		} else if path == "mod_config_data/dst-admin/runtime/worldstate.lua" {
 			source = worldStateSource
-		} else if path == "../dst-admin/commands.lua" {
+		} else if path == "mod_config_data/dst-admin/runtime/commands.lua" {
 			source = commandsSource
 		}
+		source = fmt.Sprintf("local module = (function() %s end)(); module.version = module.version or %q; return module", source, RuntimeVersion)
 		if err := L.CallByParam(lua.P{Fn: callback, NRet: 0, Protect: true}, lua.LTrue, lua.LString(source)); err != nil {
 			L.RaiseError("persistent callback: %v", err)
 		}
@@ -939,6 +940,12 @@ EmitOnce=function(callback) refresh_order=(refresh_order or "").."worldstate,"; 
 	callLuaMethod(t, state, second, "Refresh", true)
 	if state.GetGlobal("refresh_order").String() != "worldstate,telemetry," {
 		t.Fatalf("refresh order = %q", state.GetGlobal("refresh_order").String())
+	}
+
+	telemetrySource = `return {version="2.4.10"}`
+	callLuaMethod(t, state, second, "Reload", true)
+	if state.GetGlobal("DSTAdmin") != second || luaInt(state, "runtime_stops") != 1 {
+		t.Fatal("mixed runtime versions stopped or replaced the current instance")
 	}
 
 	telemetrySource = "local broken = ("

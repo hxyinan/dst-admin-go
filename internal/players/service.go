@@ -428,11 +428,21 @@ func (s *Service) collectWorldSnapshot(ctx context.Context, room rooms.Room, wor
 	}
 	observations, source, status, warning, snapshotAt, err := s.readSnapshot(ctx, room.ID, world.ID, observedAt)
 	if err != nil {
-		if ctx.Err() == nil && errors.Is(err, dstruntime.ErrRuntimeRefreshDeferred) {
+		if ctx.Err() == nil && (errors.Is(err, dstruntime.ErrRuntimeRefreshDeferred) || errors.Is(err, ErrTelemetryRecoveryDeferred)) {
 			outcome.Deferred = true
+			warning := "房间操作中，玩家数据更新暂缓"
+			if errors.Is(err, ErrTelemetryRecoveryDeferred) {
+				warning = "运行时采集不可用，已降低重试频率；请检查运行时是否已安装并加载"
+			}
+			if errors.Is(err, ErrTelemetryRecoveryDeferred) {
+				outcome.Err = s.store.MarkWorldStale(room.ID, world.ID)
+			}
+			if !skipPaused {
+				outcome.Err = errors.Join(err, outcome.Err)
+			}
 			outcome.Result = RefreshResult{
 				WorldID: world.ID, Running: true, Source: SourceRuntime, Status: FreshnessStale,
-				Warning: "房间操作中，玩家数据更新暂缓", Message: "已保留上次玩家采集结果",
+				Warning: warning, Message: "已保留上次玩家采集结果",
 			}
 			return outcome, worldSnapshot{}
 		}

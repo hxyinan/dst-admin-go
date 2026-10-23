@@ -310,7 +310,7 @@ func decodeHealthData(data []byte, expectedSession, expectedShard string, readAt
 	if err := decodeStrictJSON(data, &health); err != nil {
 		return Health{}, fmt.Errorf("%w: decode health: %v", ErrSnapshotInvalid, err)
 	}
-	if health.SchemaVersion != 1 || health.ProducerVersion == "" || health.ProducerInstanceID == "" || health.SessionID == "" || health.ShardID == "" || health.Sequence < 0 || health.ConsecutiveFailures < 0 {
+	if health.UpdateID != "" && !runtimeRequestIDPattern.MatchString(health.UpdateID) || health.SchemaVersion != 1 || health.ProducerVersion == "" || health.ProducerInstanceID == "" || health.SessionID == "" || health.ShardID == "" || health.Sequence < 0 || health.ConsecutiveFailures < 0 {
 		return Health{}, ErrSnapshotInvalid
 	}
 	for _, module := range health.Modules {

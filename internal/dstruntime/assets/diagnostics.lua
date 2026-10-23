@@ -2,7 +2,7 @@ local json = require("json")
 
 local M = {}
 local SCHEMA_VERSION = 1
-local PRODUCER_VERSION = "2.4.10"
+local PRODUCER_VERSION = "2.4.11"
 local OUTPUT_ROOT = "mod_config_data/dst-admin/"
 local MAX_SAMPLES = 50
 local READY_RETRY_SECONDS = 1
@@ -225,4 +225,5 @@ function M.Status()
     return { running = state.running, ready = state.ready, busy = state.busy, sequence = state.sequence, lastError = state.lastError }
 end
 
+M.version = PRODUCER_VERSION
 return M

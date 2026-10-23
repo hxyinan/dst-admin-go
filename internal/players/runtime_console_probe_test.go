@@ -112,6 +112,7 @@ func TestRemoteTelemetryFallbackNeverUsesLocalFiles(t *testing.T) {
 		t.Fatal("remote probe read local files")
 	}
 	runtime.err = errors.New("agent disconnected")
+	probe.now = func() time.Time { return time.Now().Add(time.Minute) }
 	if _, err := probe.SnapshotDetailed(context.Background(), "remote-room", "caves"); err == nil || !strings.Contains(err.Error(), "agent disconnected") {
 		t.Fatalf("remote failure hidden: %v", err)
 	}

@@ -14,7 +14,7 @@ import (
 
 func TestPublishCommandDocumentIsAtomicAndRejectsInvalidInput(t *testing.T) {
 	root := t.TempDir()
-	runtimeRoot := filepath.Join(root, "Cluster_1", "Master", "dst-admin")
+	runtimeRoot := filepath.Join(root, "Cluster_1", "Master", "save", "mod_config_data", "dst-admin")
 	if err := os.MkdirAll(runtimeRoot, 0750); err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestPublishCommandDocumentIsAtomicAndRejectsInvalidInput(t *testing.T) {
 
 func TestPublishCommandDocumentIsIdempotentUnderConcurrency(t *testing.T) {
 	root := t.TempDir()
-	runtimeRoot := filepath.Join(root, "Cluster_1", "Master", "dst-admin")
+	runtimeRoot := filepath.Join(root, "Cluster_1", "Master", "save", "mod_config_data", "dst-admin")
 	if err := os.MkdirAll(runtimeRoot, 0750); err != nil {
 		t.Fatal(err)
 	}
@@ -97,30 +97,35 @@ func TestPublishCommandDocumentIsIdempotentUnderConcurrency(t *testing.T) {
 	}
 }
 
-func TestPublishCommandDocumentRejectsSymlinkedRuntimeDirectory(t *testing.T) {
-	root := t.TempDir()
-	world := filepath.Join(root, "Cluster_1", "Master")
-	escaped := filepath.Join(root, "escaped")
-	if err := os.MkdirAll(world, 0750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(escaped, 0750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(escaped, filepath.Join(world, "dst-admin")); err != nil {
-		t.Fatal(err)
-	}
-	data := []byte(`{"requestId":"document-request-5678"}`)
-	sum := sha256.Sum256(data)
-	document := shared.RuntimeCommandDocument{RequestID: "document-request-5678", SHA256: hex.EncodeToString(sum[:]), Data: data}
-	if err := PublishCommandDocument(context.Background(), root, "Cluster_1", "Master", document); err == nil {
-		t.Fatal("symlinked runtime directory was accepted")
+func TestPublishCommandDocumentRejectsSymlinkedPersistentStorageParents(t *testing.T) {
+	for _, relative := range []string{"save", "save/mod_config_data", "save/mod_config_data/dst-admin"} {
+		t.Run(relative, func(t *testing.T) {
+			root := t.TempDir()
+			world := filepath.Join(root, "Cluster_1", "Master")
+			escaped := t.TempDir()
+			path := filepath.Join(world, filepath.FromSlash(relative))
+			if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(escaped, path); err != nil {
+				t.Fatal(err)
+			}
+			data := []byte(`{"requestId":"document-request-5678"}`)
+			sum := sha256.Sum256(data)
+			document := shared.RuntimeCommandDocument{RequestID: "document-request-5678", SHA256: hex.EncodeToString(sum[:]), Data: data}
+			if err := PublishCommandDocument(context.Background(), root, "Cluster_1", "Master", document); err == nil {
+				t.Fatal("symlinked parent accepted")
+			}
+			if entries, err := os.ReadDir(escaped); err != nil || len(entries) != 0 {
+				t.Fatalf("symlink target changed: %v %v", entries, err)
+			}
+		})
 	}
 }
 
 func TestPublishCommandDocumentRejectsSymlinkedRequestDirectory(t *testing.T) {
 	root := t.TempDir()
-	runtimeRoot := filepath.Join(root, "Cluster_1", "Master", "dst-admin")
+	runtimeRoot := filepath.Join(root, "Cluster_1", "Master", "save", "mod_config_data", "dst-admin")
 	escaped := filepath.Join(root, "escaped")
 	if err := os.MkdirAll(runtimeRoot, 0750); err != nil {
 		t.Fatal(err)

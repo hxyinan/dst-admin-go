@@ -16,7 +16,7 @@ func worldStateFilesFixture(t *testing.T) (string, string) {
 	t.Helper()
 	root := t.TempDir()
 	world := filepath.Join(root, "all", "Master")
-	for _, directory := range []string{"save/session/SESSION", "save/mod_config_data/dst-admin", "dst-admin"} {
+	for _, directory := range []string{"save/session/SESSION", "save/mod_config_data/dst-admin/runtime", "dst-admin"} {
 		if err := os.MkdirAll(filepath.Join(world, directory), 0750); err != nil {
 			t.Fatal(err)
 		}
@@ -31,6 +31,11 @@ func worldStateFilesFixture(t *testing.T) (string, string) {
 		"save/mod_config_data/dst-admin/worldstate-b.json": "KLEI     1 {\"sequence\":2}",
 	} {
 		if err := os.WriteFile(filepath.Join(world, name), []byte(content), 0640); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{"bootstrap", "telemetry", "worldstate", "commands", "events", "diagnostics", "barriers"} {
+		if err := os.WriteFile(filepath.Join(world, "save/mod_config_data/dst-admin/runtime", name+".lua"), []byte("-- managed runtime"), 0640); err != nil {
 			t.Fatal(err)
 		}
 	}

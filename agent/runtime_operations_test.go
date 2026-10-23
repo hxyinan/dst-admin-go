@@ -106,7 +106,7 @@ func TestRuntimeConsoleSendIsIdempotent(t *testing.T) {
 func TestRuntimeConsoleSendPublishesCommandDocumentBeforeTrigger(t *testing.T) {
 	runtimeControl := &fakeShardRuntime{status: shards.RuntimeStatus{State: shards.RuntimeRunning, SessionExists: true}}
 	agent, installation := newShardOperationAgent(t, runtimeControl)
-	directory := filepath.Join(installation.SavePath, "Cluster_1", "Master", "dst-admin")
+	directory := filepath.Join(installation.SavePath, "Cluster_1", "Master", "save", "mod_config_data", "dst-admin")
 	if err := os.MkdirAll(directory, 0750); err != nil {
 		t.Fatal(err)
 	}

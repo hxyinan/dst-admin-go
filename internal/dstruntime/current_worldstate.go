@@ -39,18 +39,26 @@ func (b *DistributedBridge) HealthMatchesCurrentProcess(ctx context.Context, roo
 	if value.ReadError != "" {
 		return false, fmt.Errorf("%w: %s", ErrSnapshotUnavailable, value.ReadError)
 	}
-	if value.Runtime.State != "running" || value.Runtime.Paused == nil || !*value.Runtime.Paused ||
-		value.StartedAt.IsZero() || value.StartedAt.After(b.now().UTC()) ||
+	return pausedHealthMatchesCurrentProcess(b.now().UTC(), health, value), nil
+}
+
+func pausedHealthMatchesCurrentProcess(now time.Time, health Health, value shared.RuntimeWorldStateRead) bool {
+	return value.Runtime.Paused != nil && *value.Runtime.Paused && healthMatchesCurrentProcess(now, health, value)
+}
+
+func healthMatchesCurrentProcess(now time.Time, health Health, value shared.RuntimeWorldStateRead) bool {
+	if value.Runtime.State != "running" ||
+		value.StartedAt.IsZero() || value.StartedAt.After(now) ||
 		value.SessionID == "" || value.SessionID != health.SessionID ||
 		value.ShardID == "" || value.ShardID != health.ShardID ||
 		health.ProducerInstanceID == "" || health.LastCapturedAtUnix == nil || health.LastWrittenAtUnix == nil {
-		return false, nil
+		return false
 	}
 	startedAt := value.StartedAt.Truncate(time.Second)
 	capturedAt := time.Unix(*health.LastCapturedAtUnix, 0)
 	writtenAt := time.Unix(*health.LastWrittenAtUnix, 0)
 	return !capturedAt.Before(startedAt) && !writtenAt.Before(capturedAt) &&
-		!writtenAt.After(b.now().UTC().Add(maxFutureSkew)) && !health.ReadAt.Before(startedAt), nil
+		!writtenAt.After(now.Add(maxFutureSkew)) && !health.ReadAt.Before(startedAt)
 }
 
 func (b *DistributedBridge) ReadCurrentWorldState(ctx context.Context, roomID, worldID string) (CurrentWorldState, error) {

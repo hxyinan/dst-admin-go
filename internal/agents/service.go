@@ -55,6 +55,7 @@ type Service struct {
 	inventoryWake            chan struct{}
 	runtimeTopologyMu        sync.RWMutex
 	onRuntimeTopologyChanged []func()
+	onRuntimeNodeChanged     []func()
 	upgradeMu                sync.Mutex
 	activeUpgrades           map[string]struct{}
 	softwareClient           softwareupdate.ReleaseClient
@@ -141,6 +142,17 @@ func (s *Service) AddRuntimeTopologyListener(callback func()) {
 	}
 	s.runtimeTopologyMu.Lock()
 	s.onRuntimeTopologyChanged = append(s.onRuntimeTopologyChanged, callback)
+	s.runtimeTopologyMu.Unlock()
+}
+
+// AddRuntimeNodeListener observes connection/version/capability changes only;
+// heartbeats and inventory reads do not trigger Lua maintenance.
+func (s *Service) AddRuntimeNodeListener(callback func()) {
+	if callback == nil {
+		return
+	}
+	s.runtimeTopologyMu.Lock()
+	s.onRuntimeNodeChanged = append(s.onRuntimeNodeChanged, callback)
 	s.runtimeTopologyMu.Unlock()
 }
 
@@ -458,6 +470,7 @@ func (s *Service) Sync() (bool, error) {
 			s.emitRuntimeTopologyChanged()
 		}
 		if err == nil && s.updateInventorySignals(nil) {
+			s.emitRuntimeNodeChanged()
 			s.wakeInventoryRefresh()
 		}
 		return changed, err
@@ -522,9 +535,19 @@ func (s *Service) Sync() (bool, error) {
 		s.emitRuntimeTopologyChanged()
 	}
 	if inventoryChanged || len(adopted) > 0 {
+		s.emitRuntimeNodeChanged()
 		s.wakeInventoryRefresh()
 	}
 	return changed, nil
+}
+
+func (s *Service) emitRuntimeNodeChanged() {
+	s.runtimeTopologyMu.RLock()
+	listeners := append([]func(){}, s.onRuntimeNodeChanged...)
+	s.runtimeTopologyMu.RUnlock()
+	for _, listener := range listeners {
+		listener()
+	}
 }
 
 func (s *Service) updateInventorySignals(snapshots []TransportSnapshot) bool {
@@ -535,16 +558,16 @@ func (s *Service) updateInventorySignals(snapshots []TransportSnapshot) bool {
 			Version       string      `json:"version"`
 			Capabilities  []string    `json:"capabilities"`
 			Installations interface{} `json:"installations"`
+			Instance      interface{} `json:"instance"`
 		}{
 			Status: snapshot.Status, Version: snapshot.Version, Capabilities: snapshot.Capabilities,
-			Installations: snapshot.Details["runtime_installations"],
+			Installations: snapshot.Details["runtime_installations"], Instance: snapshot.Details["runtime_instance_id"],
 		}
 		encoded, _ := json.Marshal(relevant)
 		digest := sha256.Sum256(encoded)
 		next[snapshot.ID] = hex.EncodeToString(digest[:])
 	}
 	s.inventorySignalMu.Lock()
-	defer s.inventorySignalMu.Unlock()
 	changed := len(next) != len(s.inventorySignals)
 	if !changed {
 		for agentID, signature := range next {
@@ -555,6 +578,8 @@ func (s *Service) updateInventorySignals(snapshots []TransportSnapshot) bool {
 		}
 	}
 	s.inventorySignals = next
+	s.inventorySignalMu.Unlock()
+
 	return changed
 }
 

@@ -665,6 +665,13 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	if err != nil {
 		return nil, err
 	}
+	runtimeUpdater := dstruntime.NewAutoUpdater(roomService, runtimeDriverRouter)
+	if backgroundEnabled && !deploymentProfile.MemberEnabled {
+		agentService.AddRuntimeNodeListener(runtimeUpdater.Wake)
+		roomService.AddManagedRoomLifecycle(func(string) { runtimeUpdater.Wake() }, nil)
+		roomService.AddWorldLifecycle(func(string, string) { runtimeUpdater.Wake() })
+		hooks.workers = append(hooks.workers, runtimeUpdater.Run)
+	}
 	entityCatalogHandler.ConfigureRuntime(distributedRuntimeBridge)
 	entityCatalogHandler.ConfigureArtwork(runtimeDriverRouter)
 	runtimeEventService, err := runtimeevents.New(distributedRuntimeBridge)
@@ -723,6 +730,7 @@ func initApplicationConfig(manageBackground, ownsDatabase bool, config setting.S
 	}
 	runtimeAuditHandler := httpapi.NewRuntimeAuditHandler(runtimeAuditService)
 	runtimeHandler := httpapi.NewDSTRuntimeHandler(runtimeManager, roomService, shardOperations, distributedRuntimeBridge)
+	runtimeHandler.ConfigureUpdater(runtimeUpdater)
 	jobHandler := httpapi.NewJobHandler(jobService)
 	logService, err := logstream.NewService(savePath, roomService, runtimeDriverRouter)
 	if err != nil {

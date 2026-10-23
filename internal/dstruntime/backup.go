@@ -18,7 +18,7 @@ import (
 
 const (
 	backupDirectory     = ".dst-admin-backups"
-	backupSchemaVersion = 1
+	backupSchemaVersion = 2
 	backupManifestName  = "manifest.json"
 )
 
@@ -86,13 +86,18 @@ func (m *Manager) restoreStateBackup(worldPath, backupID string) error {
 	if err != nil {
 		return err
 	}
-	_ = manifest
+	if _, err := checkExecutionDirectory(worldPath, true); err != nil {
+		return err
+	}
 	current, err := captureFiles(worldPath, runtimeStatePaths())
 	if err != nil {
 		return err
 	}
 	if err := validateCapturedLua(files); err != nil {
 		return err
+	}
+	if manifest.SchemaVersion == 1 {
+		files = append(files, restoredExecutionFiles(files)...)
 	}
 	if err := restoreFiles(worldPath, files); err != nil {
 		return errors.Join(err, restoreFiles(worldPath, current))
@@ -120,11 +125,15 @@ func readStateBackup(worldPath, backupID string) (backupManifest, []capturedFile
 	if err := decoder.Decode(&manifest); err != nil {
 		return backupManifest{}, nil, fmt.Errorf("decode runtime backup manifest: %w", err)
 	}
-	if manifest.SchemaVersion != backupSchemaVersion || manifest.ID != backupID || manifest.CreatedAt.IsZero() || len(manifest.Files) != len(runtimeStatePaths()) {
+	paths := runtimeStatePaths()
+	if manifest.SchemaVersion == 1 {
+		paths = legacyRuntimeStatePaths()
+	}
+	if (manifest.SchemaVersion != 1 && manifest.SchemaVersion != backupSchemaVersion) || manifest.ID != backupID || manifest.CreatedAt.IsZero() || len(manifest.Files) != len(paths) {
 		return backupManifest{}, nil, errors.New("runtime backup manifest is invalid")
 	}
-	allowed := make(map[string]bool, len(runtimeStatePaths()))
-	for _, name := range runtimeStatePaths() {
+	allowed := make(map[string]bool, len(paths))
+	for _, name := range paths {
 		allowed[name] = true
 	}
 	seen := make(map[string]bool, len(manifest.Files))
@@ -157,8 +166,12 @@ func readStateBackup(worldPath, backupID string) (backupManifest, []capturedFile
 	return manifest, files, nil
 }
 
-func runtimeStatePaths() []string {
+func legacyRuntimeStatePaths() []string {
 	return append([]string{customCommandsName}, managedPaths()...)
+}
+
+func runtimeStatePaths() []string {
+	return append(legacyRuntimeStatePaths(), executionPaths()...)
 }
 
 func removeEmptyManagedDirectory(worldPath string) {
